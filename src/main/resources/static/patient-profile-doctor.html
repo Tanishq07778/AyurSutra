@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AyurSutra — Patient Profile</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+  <script src="shared.js"></script>
+</head>
+<body>
+<script>
+  injectSharedStyles();
+  Auth.require();
+  buildNav('');
+</script>
+
+<style>
+  .profile-hero {
+    background: linear-gradient(135deg, var(--green-700) 0%, var(--green-600) 60%, #4a8c2a 100%);
+    border-radius: var(--radius-lg); padding: 28px 32px;
+    color: white; display:flex; gap:24px; align-items:flex-start;
+    position:relative; overflow:hidden;
+  }
+  .profile-hero::after {
+    content:'🌿'; position:absolute; right:24px; bottom:-8px;
+    font-size:120px; opacity:0.08; line-height:1;
+  }
+  .hero-avatar {
+    width:80px; height:80px; border-radius:50%;
+    background:rgba(255,255,255,0.2); border:3px solid rgba(255,255,255,0.4);
+    display:flex; align-items:center; justify-content:center;
+    font-size:28px; font-weight:700; color:white; flex-shrink:0;
+  }
+  .hero-info { flex:1; }
+  .hero-info h1 { font-family:'Cormorant Garamond',serif; font-size:26px; font-weight:700; color:white; margin-bottom:6px; }
+  .hero-badges { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px; }
+  .hero-badge { background:rgba(255,255,255,0.2); color:white; padding:3px 10px; border-radius:20px; font-size:12px; font-weight:600; }
+  .hero-meta { display:flex; gap:24px; flex-wrap:wrap; }
+  .hero-meta-item { font-size:13px; opacity:0.85; }
+  .hero-meta-item span { display:block; font-size:16px; font-weight:700; opacity:1; margin-bottom:2px; }
+  .hero-actions { display:flex; flex-direction:column; gap:8px; align-items:flex-end; }
+
+  .profile-grid {
+    display:grid; grid-template-columns:300px 1fr;
+    gap:24px; margin-top:24px;
+  }
+
+  .vitals-row {
+    display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr));
+    gap:12px;
+  }
+  .vital-mini {
+    background:var(--cream); border-radius:var(--radius-sm);
+    padding:12px; text-align:center;
+  }
+  .vital-mini-val { font-family:'Cormorant Garamond',serif; font-size:22px; font-weight:700; color:var(--text-900); }
+  .vital-mini-lbl { font-size:11px; color:var(--text-300); margin-top:2px; text-transform:uppercase; letter-spacing:0.4px; }
+  .vital-mini-unit { font-size:12px; color:var(--text-500); }
+
+  .info-row { display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid var(--border); }
+  .info-row:last-child { border-bottom:none; }
+  .info-key { font-size:13px; color:var(--text-300); }
+  .info-val { font-size:13px; font-weight:600; color:var(--text-700); text-align:right; max-width:55%; }
+
+  .notes-area { width:100%; min-height:80px; resize:vertical; }
+  .chart-wrap { height:220px; position:relative; }
+
+  .report-row { display:flex; align-items:center; gap:12px; padding:12px 0; border-bottom:1px solid var(--border); }
+  .report-row:last-child { border-bottom:none; }
+  .report-icon { width:40px;height:40px;border-radius:8px;background:var(--cream);display:flex;align-items:center;justify-content:center;font-size:20px; }
+
+  .tab-bar { display:flex; border-bottom:2px solid var(--border); gap:0; }
+  .tab-btn { padding:12px 20px; background:none; border:none; border-bottom:2px solid transparent; margin-bottom:-2px; font-size:14px; font-weight:600; color:var(--text-300); cursor:pointer; transition:all 0.2s; }
+  .tab-btn.active { color:var(--green-700); border-bottom-color:var(--green-700); }
+  .tab-pane { display:none; padding-top:20px; }
+  .tab-pane.active { display:block; }
+
+  @media(max-width:900px) {
+    .profile-grid { grid-template-columns:1fr; }
+    .hero-actions { flex-direction:row; align-items:flex-start; margin-top:12px; }
+    .profile-hero { flex-direction:column; }
+  }
+</style>
+
+<div class="page-wrap">
+
+  <!-- Back -->
+  <a href="javascript:history.back()" style="display:inline-flex;align-items:center;gap:6px;color:var(--text-300);text-decoration:none;font-size:14px;margin-bottom:16px;">← Back</a>
+
+  <!-- Hero -->
+  <div class="profile-hero" id="profileHero">
+    <div style="display:flex;align-items:center;gap:20px;flex:1;">
+      <div class="hero-avatar" id="heroAvatar">?</div>
+      <div class="hero-info">
+        <h1 id="heroName">Loading patient...</h1>
+        <div class="hero-badges" id="heroBadges"></div>
+        <div class="hero-meta" id="heroMeta"></div>
+      </div>
+    </div>
+    <div class="hero-actions" id="heroActions" style="z-index:1">
+      <button class="btn btn-gold" onclick="openNotesModal()">📝 Add Note</button>
+      <button class="btn btn-secondary" onclick="openVitalsModal()" style="background:rgba(255,255,255,0.2);color:white;border-color:rgba(255,255,255,0.3);">➕ Record Vitals</button>
+    </div>
+  </div>
+
+  <div class="profile-grid">
+    <!-- Sidebar -->
+    <div style="display:flex;flex-direction:column;gap:20px;">
+
+      <!-- Personal Info -->
+      <div class="card card-p">
+        <h3 class="card-title" style="margin-bottom:14px;">Personal Info</h3>
+        <div id="personalInfo">
+          <div class="state-box" style="padding:20px;"><div class="spinner"></div></div>
+        </div>
+      </div>
+
+      <!-- Medical Info -->
+      <div class="card card-p">
+        <h3 class="card-title" style="margin-bottom:14px;">Medical Profile</h3>
+        <div id="medicalInfo">
+          <div class="state-box" style="padding:20px;"><div class="spinner"></div></div>
+        </div>
+      </div>
+
+      <!-- Emergency Contact -->
+      <div class="card card-p">
+        <h3 class="card-title" style="margin-bottom:14px;">Emergency Contact</h3>
+        <div id="emergencyInfo">
+          <div class="state-box" style="padding:20px;"><div class="spinner"></div></div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Main content -->
+    <div style="display:flex;flex-direction:column;gap:20px;">
+
+      <!-- Latest Vitals -->
+      <div class="card card-p">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+          <h3 class="card-title">Latest Vitals</h3>
+          <span style="font-size:12px;color:var(--text-300);" id="vitalsDate">—</span>
+        </div>
+        <div class="vitals-row" id="vitalsRow">
+          <div class="state-box" style="padding:20px;grid-column:1/-1;"><div class="spinner"></div></div>
+        </div>
+      </div>
+
+      <!-- Tabs: Trends / Reports / Notes -->
+      <div class="card card-p" style="padding-bottom:8px;">
+        <div class="tab-bar">
+          <button class="tab-btn active" onclick="switchTab('trends',this)">📈 Trends</button>
+          <button class="tab-btn" onclick="switchTab('reports',this)">📋 Reports</button>
+          <button class="tab-btn" onclick="switchTab('notes',this)">📝 Notes</button>
+        </div>
+
+        <div class="tab-pane active" id="tab-trends">
+          <div class="chart-wrap"><canvas id="vitalsChart"></canvas></div>
+        </div>
+
+        <div class="tab-pane" id="tab-reports">
+          <div id="reportsList"><div class="state-box"><div class="spinner"></div></div></div>
+        </div>
+
+        <div class="tab-pane" id="tab-notes">
+          <div id="notesList">
+            <div class="state-box" style="padding:32px;">
+              <div class="state-icon">📝</div>
+              <h4>No notes yet</h4>
+              <p>Add clinical notes about this patient</p>
+              <button class="btn btn-primary btn-sm" style="margin-top:12px;" onclick="openNotesModal()">+ Add Note</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Notes Modal -->
+<div class="modal-overlay" id="notesModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 class="modal-title">📝 Clinical Note</h3>
+      <button class="modal-close" onclick="closeModal('notesModal')">✕</button>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Note Type</label>
+      <select class="form-control" id="noteType">
+        <option value="OBSERVATION">Observation</option>
+        <option value="PRESCRIPTION">Prescription</option>
+        <option value="FOLLOW_UP">Follow-up</option>
+        <option value="TREATMENT_PLAN">Treatment Plan</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Clinical Notes</label>
+      <textarea class="form-control notes-area" id="noteText" placeholder="Enter clinical observations, treatment plan, prescription details..."></textarea>
+    </div>
+    <div style="display:flex;gap:12px;margin-top:8px;">
+      <button class="btn btn-primary" style="flex:1;justify-content:center;" onclick="saveNote()">💾 Save Note</button>
+      <button class="btn btn-secondary" onclick="closeModal('notesModal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Vitals Modal -->
+<div class="modal-overlay" id="vitalsModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 class="modal-title">➕ Record Vitals</h3>
+      <button class="modal-close" onclick="closeModal('vitalsModal')">✕</button>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Systolic BP</label><input type="number" class="form-control" id="v-sys" placeholder="120"></div>
+      <div class="form-group"><label class="form-label">Diastolic BP</label><input type="number" class="form-control" id="v-dia" placeholder="80"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Heart Rate</label><input type="number" class="form-control" id="v-hr" placeholder="72"></div>
+      <div class="form-group"><label class="form-label">Temperature °F</label><input type="number" class="form-control" id="v-temp" placeholder="98.6" step="0.1"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Weight (kg)</label><input type="number" class="form-control" id="v-wt" placeholder="70" step="0.1"></div>
+      <div class="form-group"><label class="form-label">SpO₂ (%)</label><input type="number" class="form-control" id="v-o2" placeholder="98"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Notes</label><input type="text" class="form-control" id="v-notes" placeholder="Clinical observations..."></div>
+    <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:8px;" onclick="submitVitals()">💾 Save Vitals</button>
+  </div>
+</div>
+
+<script>
+  const urlParams = new URLSearchParams(location.search);
+  const patientId = urlParams.get('id');
+  let vitalsChart = null;
+  let allVitals = [];
+  let patientData = null;
+  let sessionNotes = [];
+
+  if (!patientId) {
+    Toast.error('No patient ID specified');
+    setTimeout(() => history.back(), 1500);
+  }
+
+  // ── Modal helpers ─────────────────────────────────────────
+  function openNotesModal()  { document.getElementById('notesModal').classList.add('open'); }
+  function openVitalsModal() { document.getElementById('vitalsModal').classList.add('open'); }
+  function closeModal(id)    { document.getElementById(id).classList.remove('open'); }
+  document.querySelectorAll('.modal-overlay').forEach(m => m.addEventListener('click', e => { if(e.target===m) m.classList.remove('open'); }));
+
+  // ── Tab Switching ─────────────────────────────────────────
+  function switchTab(name, el) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+    el.classList.add('active');
+    document.getElementById('tab-'+name).classList.add('active');
+  }
+
+  // ── Load patient ──────────────────────────────────────────
+  async function loadPatient() {
+    try {
+      const [basicRes, detailRes] = await Promise.all([
+        apiFetch(`/patients/${patientId}`),
+        apiFetch(`/patients/profile/${patientId}`)
+      ]);
+
+      const basic  = basicRes.data  || {};
+      const detail = detailRes.data || basic;
+      patientData = { ...basic, ...detail };
+
+      renderHero(patientData);
+      renderPersonalInfo(patientData);
+      renderMedicalInfo(patientData);
+      renderEmergency(patientData);
+    } catch(e) {
+      document.getElementById('heroName').textContent = 'Patient not found';
+      Toast.error('Could not load patient: ' + e.message);
+    }
+  }
+
+  function renderHero(p) {
+    const initials = getInitials(p.firstName, p.lastName);
+    const bg = getAvatarColor((p.firstName||'')+(p.lastName||''));
+    const patId = p.patientId || ('AYR-PAT-'+String(p.id).padStart(6,'0'));
+    const dosha = (p.doshaType||'—').replace('_','-');
+    const age = p.dateOfBirth ? `${new Date().getFullYear()-new Date(p.dateOfBirth).getFullYear()} yrs` : null;
+
+    document.getElementById('heroAvatar').textContent = initials;
+    document.getElementById('heroAvatar').style.background = bg;
+    document.getElementById('heroName').textContent = `${p.firstName} ${p.lastName}`;
+    document.title = `AyurSutra — ${p.firstName} ${p.lastName}`;
+
+    document.getElementById('heroBadges').innerHTML = `
+      <span class="hero-badge">${patId}</span>
+      ${p.doshaType ? `<span class="hero-badge">🌀 ${dosha}</span>` : ''}
+      ${p.bloodGroup ? `<span class="hero-badge">🩸 ${p.bloodGroup}</span>` : ''}
+      ${p.gender ? `<span class="hero-badge">${p.gender}</span>` : ''}
+    `;
+    document.getElementById('heroMeta').innerHTML = `
+      ${age ? `<div class="hero-meta-item"><span>${age}</span>Age</div>` : ''}
+      ${p.phone ? `<div class="hero-meta-item"><span>${p.phone}</span>Phone</div>` : ''}
+      ${p.email ? `<div class="hero-meta-item"><span style="font-size:13px">${p.email}</span>Email</div>` : ''}
+    `;
+  }
+
+  function renderPersonalInfo(p) {
+    document.getElementById('personalInfo').innerHTML = [
+      ['Date of Birth', p.dateOfBirth ? fmtDate(p.dateOfBirth) : '—'],
+      ['Gender', p.gender || '—'],
+      ['Blood Group', p.bloodGroup || '—'],
+      ['Phone', p.phone || '—'],
+      ['Email', p.email || '—'],
+      ['Address', p.address || '—'],
+    ].map(([k,v]) => `<div class="info-row"><span class="info-key">${k}</span><span class="info-val">${v}</span></div>`).join('');
+  }
+
+  function renderMedicalInfo(p) {
+    const bmi = (p.heightCm && p.weightKg) ? (p.weightKg/Math.pow(p.heightCm/100,2)).toFixed(1) : '—';
+    document.getElementById('medicalInfo').innerHTML = [
+      ['Dosha Type', p.doshaType ? p.doshaType.replace('_','-') : '—'],
+      ['Height', p.heightCm ? `${p.heightCm} cm` : '—'],
+      ['Weight', p.weightKg ? `${p.weightKg} kg` : '—'],
+      ['BMI', bmi],
+      ['Allergies', (p.allergies||[]).join(', ') || 'None'],
+      ['Current Meds', (p.currentMedications||[]).join(', ') || 'None'],
+    ].map(([k,v]) => `<div class="info-row"><span class="info-key">${k}</span><span class="info-val">${v}</span></div>`).join('');
+  }
+
+  function renderEmergency(p) {
+    document.getElementById('emergencyInfo').innerHTML = [
+      ['Name', p.emergencyContactName || '—'],
+      ['Phone', p.emergencyContactPhone || '—'],
+      ['Relation', 'Family'],
+    ].map(([k,v]) => `<div class="info-row"><span class="info-key">${k}</span><span class="info-val">${v}</span></div>`).join('');
+  }
+
+  // ── Load vitals ───────────────────────────────────────────
+  async function loadVitals() {
+    try {
+      const res = await apiFetch(`/vitals/${patientId}`);
+      allVitals = res.data || [];
+
+      if (!allVitals.length) {
+        document.getElementById('vitalsRow').innerHTML =
+          emptyHTML('📊','No vitals recorded','Record the first vitals for this patient');
+        return;
+      }
+
+      const latest = allVitals[0];
+      document.getElementById('vitalsDate').textContent = `Last recorded: ${fmtDate(latest.recordedAt)}`;
+
+      document.getElementById('vitalsRow').innerHTML = [
+        { label:'Blood Pressure', val: (latest.systolicBP&&latest.diastolicBP) ? `${latest.systolicBP}/${latest.diastolicBP}` : '—', unit:'mmHg' },
+        { label:'Heart Rate',     val: latest.heartRate || '—',      unit:'bpm' },
+        { label:'Temperature',    val: latest.temperature?.toFixed(1)||'—', unit:'°F' },
+        { label:'Weight',         val: latest.weight?.toFixed(1)||'—', unit:'kg' },
+        { label:'SpO₂',           val: latest.oxygenSaturation||'—', unit:'%' },
+        { label:'Blood Sugar',    val: latest.bloodSugar||'—',       unit:'mg/dL' },
+      ].map(v => `
+        <div class="vital-mini">
+          <div class="vital-mini-val">${v.val}</div>
+          <div class="vital-mini-unit">${v.unit}</div>
+          <div class="vital-mini-lbl">${v.label}</div>
+        </div>`).join('');
+
+      renderChart(allVitals.slice(0,10).reverse());
+    } catch(e) {
+      document.getElementById('vitalsRow').innerHTML = errorHTML('Could not load vitals');
+    }
+  }
+
+  function renderChart(vitals) {
+    const ctx = document.getElementById('vitalsChart').getContext('2d');
+    if (vitalsChart) vitalsChart.destroy();
+    vitalsChart = new Chart(ctx, {
+      type:'line',
+      data: {
+        labels: vitals.map(v => fmtDate(v.recordedAt, {month:'short',day:'numeric'})),
+        datasets: [
+          { label:'Systolic BP', data:vitals.map(v=>v.systolicBP), borderColor:'#c0392b', backgroundColor:'rgba(192,57,43,0.08)', tension:0.4, pointRadius:4 },
+          { label:'Heart Rate',  data:vitals.map(v=>v.heartRate),  borderColor:'#d4af37', backgroundColor:'rgba(212,175,55,0.08)', tension:0.4, pointRadius:4 },
+          { label:'Weight',      data:vitals.map(v=>v.weight),     borderColor:'#2d5016', backgroundColor:'rgba(45,80,22,0.08)',   tension:0.4, yAxisID:'y1', pointRadius:4 },
+        ]
+      },
+      options: {
+        responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{ position:'bottom', labels:{ usePointStyle:true, padding:12 } } },
+        scales: {
+          y: { position:'left', title:{ display:true, text:'BP / HR' }, beginAtZero:false },
+          y1:{ position:'right', grid:{ drawOnChartArea:false }, title:{ display:true, text:'kg' }, beginAtZero:false }
+        }
+      }
+    });
+  }
+
+  // ── Load reports ──────────────────────────────────────────
+  async function loadReports() {
+    try {
+      const res = await apiFetch(`/reports/${patientId}`);
+      const reports = res.data || [];
+      if (!reports.length) {
+        document.getElementById('reportsList').innerHTML = emptyHTML('📋','No reports uploaded','—');
+        return;
+      }
+      const icons = { LAB_REPORT:'📋', RADIOLOGY:'🩺', PRESCRIPTION:'💊', DISCHARGE_SUMMARY:'📄', CONSULTATION_NOTES:'📝', OTHER:'📁' };
+      document.getElementById('reportsList').innerHTML = reports.slice(0,8).map(r => `
+        <div class="report-row">
+          <div class="report-icon">${icons[r.reportType]||'📄'}</div>
+          <div style="flex:1">
+            <div style="font-size:14px;font-weight:600;">${r.title||'Report'}</div>
+            <div style="font-size:12px;color:var(--text-300);">${fmtDate(r.reportDate||r.uploadedAt)}</div>
+          </div>
+          <span class="badge badge-blue" style="font-size:11px;">${(r.reportType||'').replace(/_/g,' ')}</span>
+        </div>`).join('');
+    } catch(e) {
+      document.getElementById('reportsList').innerHTML = errorHTML('Could not load reports');
+    }
+  }
+
+  // ── Submit Vitals ─────────────────────────────────────────
+  async function submitVitals() {
+    const vitalsData = { recordedBy: Auth.user().firstName + ' ' + Auth.user().lastName };
+    const f = (id, parse) => { const v=document.getElementById(id).value; if(v) vitalsData[parse[0]]=parse[1](v); };
+    f('v-sys',  ['systolicBP',      parseInt]);
+    f('v-dia',  ['diastolicBP',     parseInt]);
+    f('v-hr',   ['heartRate',       parseInt]);
+    f('v-temp', ['temperature',     parseFloat]);
+    f('v-wt',   ['weight',          parseFloat]);
+    f('v-o2',   ['oxygenSaturation',parseInt]);
+    f('v-notes',['notes',           String]);
+
+    try {
+      const res = await apiFetch(`/vitals/${patientId}`, { method:'POST', body:JSON.stringify(vitalsData) });
+      if (res.success) {
+        Toast.success('Vitals recorded!');
+        closeModal('vitalsModal');
+        document.getElementById('v-sys').value=''; document.getElementById('v-dia').value='';
+        document.getElementById('v-hr').value='';  document.getElementById('v-temp').value='';
+        document.getElementById('v-wt').value='';  document.getElementById('v-o2').value='';
+        document.getElementById('v-notes').value='';
+        loadVitals();
+      } else {
+        Toast.error(res.message || 'Failed to save');
+      }
+    } catch(e) {
+      Toast.error('Network error');
+    }
+  }
+
+  // ── Save Note (mock) ──────────────────────────────────────
+  function saveNote() {
+    const text = document.getElementById('noteText').value.trim();
+    const type = document.getElementById('noteType').value;
+    if (!text) { Toast.warning('Please enter a note'); return; }
+
+    sessionNotes.unshift({ type, text, time:new Date().toISOString(), doctor: Auth.user().firstName });
+    renderNotes();
+    closeModal('notesModal');
+    document.getElementById('noteText').value = '';
+    Toast.success('Note saved!');
+  }
+
+  function renderNotes() {
+    if (!sessionNotes.length) return;
+    const typeColors = { OBSERVATION:'badge-blue', PRESCRIPTION:'badge-green', FOLLOW_UP:'badge-gold', TREATMENT_PLAN:'badge-gray' };
+    document.getElementById('notesList').innerHTML = sessionNotes.map(n => `
+      <div style="padding:14px;border-bottom:1px solid var(--border);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <span class="badge ${typeColors[n.type]||'badge-gray'}">${n.type.replace('_',' ')}</span>
+          <span style="font-size:12px;color:var(--text-300);">${fmtDate(n.time)} · Dr. ${n.doctor}</span>
+        </div>
+        <p style="font-size:14px;color:var(--text-700);line-height:1.6;">${n.text}</p>
+      </div>`).join('');
+  }
+
+  // ── Init ──────────────────────────────────────────────────
+  (async () => {
+    if (!patientId) return;
+    await Promise.all([loadPatient(), loadVitals(), loadReports()]);
+  })();
+</script>
+</body>
+</html>

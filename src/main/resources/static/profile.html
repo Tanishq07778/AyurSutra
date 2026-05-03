@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AyurSutra — My Profile</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="shared.js"></script>
+</head>
+<body>
+<script>
+  injectSharedStyles();
+  Auth.requirePatient();
+  buildNav('profile.html');
+</script>
+
+<style>
+  /* ── Hero ─── */
+  .profile-hero {
+    background: linear-gradient(135deg, var(--g9) 0%, var(--g8) 50%, #0a1f08 100%);
+    position: relative; overflow: hidden;
+  }
+  .profile-hero::before {
+    content: ''; position: absolute; inset: 0; opacity: .05;
+    background-image: repeating-linear-gradient(45deg, rgba(255,255,255,.5) 0, rgba(255,255,255,.5) 1px, transparent 0, transparent 50%);
+    background-size: 36px 36px;
+  }
+  .hero-inner {
+    max-width: 1440px; margin: 0 auto; padding: 36px 28px 32px;
+    display: flex; align-items: flex-end; gap: 28px; position: relative; z-index: 1; flex-wrap: wrap;
+  }
+  .hero-avatar-ring {
+    width: 100px; height: 100px; border-radius: 50%;
+    border: 3px solid var(--gold); flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 34px; font-weight: 700; color: white;
+  }
+  .hero-meta { flex: 1; min-width: 200px; }
+  .hero-name { font-family: 'Lora', serif; font-size: 28px; font-weight: 600; color: white; margin-bottom: 6px; }
+  .hero-sub  { font-size: 13px; color: rgba(255,255,255,.55); display: flex; gap: 14px; flex-wrap: wrap; align-items: center; margin-bottom: 16px; }
+  .hero-tag  { background: rgba(255,255,255,.1); padding: 3px 10px; border-radius: 20px; font-size: 12px; color: rgba(255,255,255,.75); }
+  .hero-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+  /* ── Strip ─── */
+  .prof-strip {
+    background: var(--white); border-bottom: 1px solid var(--paper3);
+    box-shadow: var(--sh1); position: sticky; top: var(--nav); z-index: 100;
+  }
+  .ps-inner {
+    max-width: 1440px; margin: 0 auto; padding: 0 28px;
+    display: flex; overflow-x: auto; scrollbar-width: none; gap: 0;
+  }
+  .ps-inner::-webkit-scrollbar { display: none; }
+  .ps-tab {
+    flex-shrink: 0; padding: 13px 22px; background: none;
+    border: none; border-bottom: 3px solid transparent;
+    font-size: 13px; font-weight: 600; color: var(--ink4); cursor: pointer;
+    transition: all .18s;
+  }
+  .ps-tab:hover  { color: var(--g7); background: var(--g0); }
+  .ps-tab.active { color: var(--g7); border-bottom-color: var(--g7); background: var(--g0); }
+
+  /* ── Content ─── */
+  .prof-body { max-width: 1440px; margin: 0 auto; padding: 28px; display: grid; grid-template-columns: 1fr 300px; gap: 24px; }
+
+  /* ── Info section ─── */
+  .detail-panel { background: var(--white); border: 1px solid var(--paper3); border-radius: var(--r16); overflow: hidden; }
+  .dp-head { display: flex; justify-content: space-between; align-items: center; padding: 16px 22px; border-bottom: 1px solid var(--paper3); }
+  .dp-title { font-family: 'Lora', serif; font-size: 17px; font-weight: 600; }
+  .dp-body { padding: 16px 22px; }
+  .dp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
+  .dp-cell { padding: 10px 0; border-bottom: 1px solid var(--paper3); }
+  .dp-cell:nth-last-child(-n+2) { border-bottom: none; }
+  .dp-key { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: var(--ink4); margin-bottom: 3px; }
+  .dp-val { font-size: 14px; font-weight: 600; color: var(--ink2); }
+  .dp-val.empty { color: var(--ink4); font-weight: 400; font-style: italic; }
+
+  /* ── Medical history / allergies list ─── */
+  .tag-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+  .tag-pill { background: var(--g1); color: var(--g7); padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+  .tag-pill.allergy { background: var(--red-l); color: var(--red); }
+
+  /* ── Sidebar ─── */
+  .sidebar { display: flex; flex-direction: column; gap: 16px; }
+  .side-card { background: var(--white); border: 1px solid var(--paper3); border-radius: var(--r16); overflow: hidden; }
+  .sc-hd { padding: 14px 18px; border-bottom: 1px solid var(--paper3); display: flex; justify-content: space-between; align-items: center; }
+  .sc-tt { font-family: 'Lora', serif; font-size: 15px; font-weight: 600; }
+  .sc-body { padding: 14px 18px; }
+
+  /* ── QR card ─── */
+  .qr-card-inner { background: var(--paper); border-radius: var(--r12); padding: 22px; text-align: center; }
+
+  /* ── Section panels  ─── */
+  .sec { display: none; }
+  .sec.active { display: block; }
+
+  /* ── Edit modal override for larger max-width ─── */
+  .modal-box-wide { max-width: 600px; }
+
+  @media(max-width: 1000px) { .prof-body { grid-template-columns: 1fr; } .sidebar { order: -1; } }
+  @media(max-width: 640px)  { .dp-grid { grid-template-columns: 1fr; } .hero-inner { padding: 24px 18px; } .dp-cell:last-child { border-bottom: none; } }
+</style>
+
+<!-- HERO -->
+<div class="profile-hero">
+  <div class="hero-inner">
+    <div class="hero-avatar-ring" id="heroAv">?</div>
+    <div class="hero-meta">
+      <div class="hero-name" id="heroName">Loading…</div>
+      <div class="hero-sub">
+        <span id="heroId">—</span>
+        <span id="heroBadge1" class="hero-tag" style="display:none;"></span>
+        <span id="heroBadge2" class="hero-tag" style="display:none;"></span>
+        <span class="hero-tag" style="background:rgba(40,167,69,.25);color:#8bc34a;">● Active</span>
+      </div>
+      <div class="hero-actions">
+        <button class="btn btn-gold" onclick="openEdit()">✏️ Edit Profile</button>
+        <button class="btn btn-ghost" onclick="openQR()">📱 QR Card</button>
+        <a href="health-dashboard.html" class="btn btn-ghost">📊 Health Dashboard</a>
+      </div>
+    </div>
+    <!-- Mini stats -->
+    <div style="display:flex;gap:24px;flex-shrink:0;" id="heroStats">
+      <div style="text-align:center;">
+        <div style="font-family:'Lora',serif;font-size:24px;font-weight:700;color:white;" id="hStatR">—</div>
+        <div style="font-size:11px;color:rgba(255,255,255,.45);margin-top:2px;">Reports</div>
+      </div>
+      <div style="text-align:center;">
+        <div style="font-family:'Lora',serif;font-size:24px;font-weight:700;color:white;" id="hStatV">—</div>
+        <div style="font-size:11px;color:rgba(255,255,255,.45);margin-top:2px;">Vitals</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- STRIP -->
+<div class="prof-strip">
+  <div class="ps-inner">
+    <button class="ps-tab active" onclick="showSec('personal', this)">Personal Info</button>
+    <button class="ps-tab" onclick="showSec('medical', this)">Medical Profile</button>
+    <button class="ps-tab" onclick="showSec('emergency', this)">Emergency</button>
+    <button class="ps-tab" onclick="showSec('activity', this)">Activity</button>
+  </div>
+</div>
+
+<!-- BODY -->
+<div class="prof-body">
+  <div>
+
+    <!-- Personal -->
+    <div class="sec active" id="sec-personal">
+      <div class="detail-panel">
+        <div class="dp-head"><span class="dp-title">Personal Information</span><button class="btn btn-secondary btn-sm" onclick="openEdit()">✏️ Edit</button></div>
+        <div class="dp-body">
+          <div class="dp-grid" id="dp-personal">
+            <div class="s-box"><div class="s-spin"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Medical -->
+    <div class="sec" id="sec-medical">
+      <div class="detail-panel">
+        <div class="dp-head"><span class="dp-title">Medical Profile</span><button class="btn btn-secondary btn-sm" onclick="openEdit()">✏️ Edit</button></div>
+        <div class="dp-body" id="dp-medical">
+          <div class="s-box"><div class="s-spin"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Emergency -->
+    <div class="sec" id="sec-emergency">
+      <div class="detail-panel">
+        <div class="dp-head"><span class="dp-title">Emergency Contact</span><button class="btn btn-secondary btn-sm" onclick="openEdit()">✏️ Edit</button></div>
+        <div class="dp-body" id="dp-emergency">
+          <div class="s-box"><div class="s-spin"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Activity -->
+    <div class="sec" id="sec-activity">
+      <div class="detail-panel">
+        <div class="dp-head"><span class="dp-title">Recent Activity</span></div>
+        <div class="dp-body" id="dp-activity">
+          <div class="s-box"><div class="s-spin"></div></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Sidebar -->
+  <div class="sidebar">
+
+    <!-- Quick info card -->
+    <div class="side-card">
+      <div class="sc-hd"><span class="sc-tt">Health Snapshot</span></div>
+      <div class="sc-body" id="healthSnapshot">
+        <div class="s-box" style="padding:20px;"><div class="s-spin"></div></div>
+      </div>
+    </div>
+
+    <!-- QR preview -->
+    <div class="side-card">
+      <div class="sc-hd"><span class="sc-tt">Patient QR Card</span></div>
+      <div class="sc-body" style="text-align:center;">
+        <p style="font-size:12px;color:var(--ink4);margin-bottom:12px;">Doctors scan this to access your profile instantly</p>
+        <button class="btn btn-primary btn-full" onclick="openQR()">📱 Show QR Card</button>
+      </div>
+    </div>
+
+    <!-- Quick nav -->
+    <div class="side-card">
+      <div class="sc-hd"><span class="sc-tt">Quick Links</span></div>
+      <div class="sc-body" style="display:flex;flex-direction:column;gap:8px;">
+        <a href="health-dashboard.html" class="btn btn-secondary btn-full">📊 Health Dashboard</a>
+        <a href="doctors-list.html"     class="btn btn-secondary btn-full">🩺 Find Doctors</a>
+        <button class="btn btn-secondary btn-full" onclick="openEdit()">✏️ Edit Profile</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ── EDIT PROFILE MODAL ─── -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal-box modal-box-wide">
+    <div class="modal-head">
+      <h3 class="modal-title">Edit Profile</h3>
+      <button class="modal-x" onclick="closeModal('editModal')">✕</button>
+    </div>
+    <div class="form-section">Basic Information</div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">First Name</label><input class="form-ctrl" id="ef-fn" type="text" placeholder="First name"></div>
+      <div class="form-group"><label class="form-label">Last Name</label><input class="form-ctrl" id="ef-ln" type="text" placeholder="Last name"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Phone</label><input class="form-ctrl" id="ef-ph" type="tel" placeholder="10-digit phone"></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Date of Birth</label><input class="form-ctrl" id="ef-dob" type="date"></div>
+      <div class="form-group"><label class="form-label">Gender</label>
+        <select class="form-ctrl" id="ef-gnd"><option value="">Select…</option><option value="MALE">Male</option><option value="FEMALE">Female</option><option value="OTHER">Other</option></select>
+      </div>
+    </div>
+    <div class="form-group"><label class="form-label">Address</label><input class="form-ctrl" id="ef-addr" type="text" placeholder="Your address"></div>
+    <div class="form-section">Medical Information</div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Blood Group</label>
+        <select class="form-ctrl" id="ef-bl"><option value="">Select…</option><option>A+</option><option>A-</option><option>B+</option><option>B-</option><option>AB+</option><option>AB-</option><option>O+</option><option>O-</option></select>
+      </div>
+      <div class="form-group"><label class="form-label">Dosha Type</label>
+        <select class="form-ctrl" id="ef-dsh"><option value="">Select…</option><option value="VATA">Vata</option><option value="PITTA">Pitta</option><option value="KAPHA">Kapha</option><option value="VATA_PITTA">Vata-Pitta</option><option value="PITTA_KAPHA">Pitta-Kapha</option><option value="VATA_KAPHA">Vata-Kapha</option><option value="TRIDOSHA">Tridosha</option></select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Height (cm)</label><input class="form-ctrl" id="ef-ht" type="number" placeholder="170"></div>
+      <div class="form-group"><label class="form-label">Weight (kg)</label><input class="form-ctrl" id="ef-wt" type="number" placeholder="65" step="0.1"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Medical History</label><textarea class="form-ctrl" id="ef-hist" rows="2" style="resize:vertical;" placeholder="Known conditions, past surgeries…"></textarea></div>
+    <div class="form-section">Emergency Contact</div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Contact Name</label><input class="form-ctrl" id="ef-ecn" type="text" placeholder="Contact person"></div>
+      <div class="form-group"><label class="form-label">Contact Phone</label><input class="form-ctrl" id="ef-ecp" type="tel" placeholder="10-digit phone"></div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:12px;">
+      <button class="btn btn-primary btn-full" id="editBtn" onclick="submitEdit()">💾 Save Changes</button>
+      <button class="btn btn-secondary" onclick="closeModal('editModal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── QR MODAL ─── -->
+<div class="modal-overlay" id="qrModal">
+  <div class="modal-box" style="max-width:360px;text-align:center;">
+    <div class="modal-head">
+      <h3 class="modal-title">My QR Card</h3>
+      <button class="modal-x" onclick="closeModal('qrModal')">✕</button>
+    </div>
+    <div class="qr-card-inner">
+      <div style="font-family:'Lora',serif;font-size:17px;font-weight:600;color:var(--g7);margin-bottom:12px;">🍃 AyurSutra</div>
+      <div id="qrCanvas" style="display:flex;justify-content:center;margin-bottom:12px;"></div>
+      <div id="qrName" style="font-weight:600;font-size:15px;"></div>
+      <div id="qrId"   style="font-size:12px;color:var(--ink4);margin-top:2px;"></div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:14px;justify-content:center;">
+      <button class="btn btn-primary" onclick="dlQR()">💾 Download</button>
+      <button class="btn btn-secondary" onclick="closeModal('qrModal')">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const tok  = localStorage.getItem('token');
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  if (!tok || !user.id) { window.location.href = 'login.html'; throw 0; }
+
+  const $  = id => document.getElementById(id);
+  let P    = {};   // full patient profile
+  let qrI  = null; // QR instance
+
+  function closeModal(id) { $(id).classList.remove('open'); }
+  document.querySelectorAll('.modal-overlay').forEach(m => m.addEventListener('click', e => { if(e.target===m) m.classList.remove('open'); }));
+
+  // ── Section switching ─────────────────────────────────────
+  function showSec(name, btn) {
+    document.querySelectorAll('.ps-tab').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.sec').forEach(s => s.classList.remove('active'));
+    $('sec-'+name).classList.add('active');
+    if (name==='activity' && !$('dp-activity').dataset.loaded) loadActivity();
+  }
+
+  // ── Load profile ──────────────────────────────────────────
+  async function loadProfile() {
+    try {
+      const [bR, dR] = await Promise.allSettled([
+        apiFetch('/patients/'+user.id),
+        apiFetch('/patients/profile/'+user.id)
+      ]);
+      const basic  = bR.status==='fulfilled' ? (bR.value.data||{})  : {};
+      const detail = dR.status==='fulfilled' ? (dR.value.data||{})  : {};
+      P = { ...basic, ...detail };
+
+      const initials = getInitials(P.firstName||user.firstName, P.lastName||user.lastName);
+      const bg       = getAvatarColor((P.firstName||user.firstName)+(P.lastName||user.lastName));
+      const patId    = P.patientId || ('AYR-PAT-'+String(user.id).padStart(6,'0'));
+      const bmi      = (P.heightCm&&P.weightKg) ? (P.weightKg/Math.pow(P.heightCm/100,2)).toFixed(1) : null;
+
+      // Hero
+      $('heroAv').textContent = initials; $('heroAv').style.background = bg;
+      $('heroName').textContent = (P.firstName||'')+' '+(P.lastName||'');
+      $('heroId').textContent   = patId;
+      if (P.doshaType) { $('heroBadge1').textContent = P.doshaType.replace('_','-')+' Dosha'; $('heroBadge1').style.display='inline'; }
+      if (P.bloodGroup){ $('heroBadge2').textContent = '🩸 '+P.bloodGroup; $('heroBadge2').style.display='inline'; }
+
+      // QR pre-fill
+      $('qrName').textContent = (P.firstName||'')+' '+(P.lastName||'');
+      $('qrId').textContent   = patId;
+
+      renderPersonal(); renderMedical(); renderEmergency();
+      renderHealthSnapshot(P, bmi);
+      loadCounts();
+    } catch(e) {
+      console.error('Profile load error:', e);
+      Toast.error('Could not load profile');
+    }
+  }
+
+  function renderPersonal() {
+    const p = P;
+    const rows = [
+      ['First Name',   p.firstName||'—'],
+      ['Last Name',    p.lastName||'—'],
+      ['Email',        p.email||'—'],
+      ['Phone',        p.phone||'—'],
+      ['Date of Birth',p.dateOfBirth ? fmtDate(p.dateOfBirth) : '—'],
+      ['Gender',       p.gender||'—'],
+      ['Address',      p.address||'—', 2],
+    ];
+    $('dp-personal').innerHTML = rows.map(([k,v,span]) =>
+      `<div class="dp-cell" ${span ? 'style="grid-column:1/-1"' : ''}><div class="dp-key">${k}</div><div class="dp-val ${v==='—'?'empty':''}">${v}</div></div>`
+    ).join('');
+  }
+
+  function renderMedical() {
+    const p = P;
+    const bmi = (p.heightCm&&p.weightKg) ? (p.weightKg/Math.pow(p.heightCm/100,2)).toFixed(1) : '—';
+    const allergyTags = (p.allergies||[]).length
+      ? `<div class="tag-list">${(p.allergies||[]).map(a=>`<span class="tag-pill allergy">${a}</span>`).join('')}</div>`
+      : '<span class="dp-val empty">None reported</span>';
+    const medTags = (p.currentMedications||[]).length
+      ? `<div class="tag-list">${(p.currentMedications||[]).map(m=>`<span class="tag-pill">${m}</span>`).join('')}</div>`
+      : '<span class="dp-val empty">None</span>';
+
+    $('dp-medical').innerHTML = `
+      <div class="dp-grid">
+        <div class="dp-cell"><div class="dp-key">Blood Group</div><div class="dp-val ${!p.bloodGroup?'empty':''}">${p.bloodGroup||'—'}</div></div>
+        <div class="dp-cell"><div class="dp-key">Dosha Type</div><div class="dp-val ${!p.doshaType?'empty':''}">${p.doshaType ? p.doshaType.replace('_','-') : '—'}</div></div>
+        <div class="dp-cell"><div class="dp-key">Height</div><div class="dp-val ${!p.heightCm?'empty':''}">${p.heightCm ? p.heightCm+' cm' : '—'}</div></div>
+        <div class="dp-cell"><div class="dp-key">Weight</div><div class="dp-val ${!p.weightKg?'empty':''}">${p.weightKg ? p.weightKg+' kg' : '—'}</div></div>
+        <div class="dp-cell"><div class="dp-key">BMI</div><div class="dp-val ${bmi==='—'?'empty':''}">${bmi}</div></div>
+        <div class="dp-cell"><div class="dp-key">Medical History</div><div class="dp-val ${!p.medicalHistory?'empty':''}">${p.medicalHistory||'None recorded'}</div></div>
+        <div class="dp-cell" style="grid-column:1/-1"><div class="dp-key">Allergies</div>${allergyTags}</div>
+        <div class="dp-cell" style="grid-column:1/-1"><div class="dp-key">Current Medications</div>${medTags}</div>
+      </div>`;
+  }
+
+  function renderEmergency() {
+    const p = P;
+    $('dp-emergency').innerHTML = `
+      <div class="dp-grid">
+        <div class="dp-cell"><div class="dp-key">Contact Name</div><div class="dp-val ${!p.emergencyContactName?'empty':''}">${p.emergencyContactName||'—'}</div></div>
+        <div class="dp-cell"><div class="dp-key">Contact Phone</div><div class="dp-val ${!p.emergencyContactPhone?'empty':''}">${p.emergencyContactPhone||'—'}</div></div>
+        <div class="dp-cell"><div class="dp-key">Relationship</div><div class="dp-val">Family</div></div>
+      </div>`;
+  }
+
+  function renderHealthSnapshot(p, bmi) {
+    $('healthSnapshot').innerHTML = [
+      ['🩸', 'Blood Group', p.bloodGroup||'—'],
+      ['🌀', 'Dosha',       p.doshaType ? p.doshaType.replace('_','-') : '—'],
+      ['📏', 'Height',      p.heightCm ? p.heightCm+'cm' : '—'],
+      ['⚖️', 'Weight',      p.weightKg ? p.weightKg+'kg' : '—'],
+      ['📊', 'BMI',         bmi||'—'],
+    ].map(([ic,k,v]) => `
+      <div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--paper3);font-size:13px;">
+        <span style="color:var(--ink4);">${ic} ${k}</span>
+        <span style="font-weight:600;">${v}</span>
+      </div>`).join('') + '<div style="height:6px;"></div>';
+  }
+
+  async function loadCounts() {
+    try {
+      const [rR, vR] = await Promise.allSettled([
+        apiFetch('/reports/'+user.id),
+        apiFetch('/vitals/'+user.id)
+      ]);
+      const rCnt = rR.status==='fulfilled' ? ((rR.value.data||[]).length) : '—';
+      const vCnt = vR.status==='fulfilled' ? ((vR.value.data||[]).length) : '—';
+      $('hStatR').textContent = rCnt;
+      $('hStatV').textContent = vCnt;
+    } catch(e) {}
+  }
+
+  async function loadActivity() {
+    try {
+      const [rR, vR] = await Promise.allSettled([
+        apiFetch('/reports/'+user.id),
+        apiFetch('/vitals/'+user.id)
+      ]);
+      const reports = rR.status==='fulfilled' ? (rR.value.data||[]) : [];
+      const vitals  = vR.status==='fulfilled' ? (vR.value.data||[]) : [];
+      const icons   = { LAB_REPORT:'📋', RADIOLOGY:'🩺', PRESCRIPTION:'💊', DISCHARGE_SUMMARY:'📄', CONSULTATION_NOTES:'📝', OTHER:'📁' };
+
+      const combined = [
+        ...reports.map(r => ({ type:'report', icon:icons[r.reportType]||'📄', title:r.title||'Report', sub:(r.reportType||'OTHER').replace(/_/g,' '), date:r.uploadedAt||r.reportDate })),
+        ...vitals.map(v  => ({ type:'vital',  icon:'🩺', title:'Vitals Recorded', sub: v.systolicBP ? `BP ${v.systolicBP}/${v.diastolicBP}` : 'Health check', date:v.recordedAt })),
+      ].sort((a,b) => new Date(b.date)-new Date(a.date)).slice(0,10);
+
+      if (!combined.length) {
+        $('dp-activity').innerHTML = emptyHTML('📋','No activity yet','Upload reports or record vitals to see history');
+      } else {
+        $('dp-activity').innerHTML = combined.map(a => `
+          <div style="display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--paper3);">
+            <span style="font-size:20px;">${a.icon}</span>
+            <div style="flex:1;"><div style="font-size:13px;font-weight:600;">${a.title}</div><div style="font-size:11px;color:var(--ink4);margin-top:2px;">${a.sub}</div></div>
+            <span style="font-size:11px;color:var(--ink4);">${fmtDate(a.date)}</span>
+          </div>`).join('');
+      }
+      $('dp-activity').dataset.loaded = '1';
+    } catch(e) {
+      $('dp-activity').innerHTML = errorHTML('Could not load activity');
+    }
+  }
+
+  // ── Edit profile ──────────────────────────────────────────
+  function openEdit() {
+    $('ef-fn').value   = P.firstName  || '';
+    $('ef-ln').value   = P.lastName   || '';
+    $('ef-ph').value   = P.phone      || '';
+    $('ef-dob').value  = P.dateOfBirth ? P.dateOfBirth.split('T')[0] : '';
+    $('ef-gnd').value  = P.gender     || '';
+    $('ef-addr').value = P.address    || '';
+    $('ef-bl').value   = P.bloodGroup || '';
+    $('ef-dsh').value  = P.doshaType  || '';
+    $('ef-ht').value   = P.heightCm   || '';
+    $('ef-wt').value   = P.weightKg   || '';
+    $('ef-hist').value = P.medicalHistory || '';
+    $('ef-ecn').value  = P.emergencyContactName  || '';
+    $('ef-ecp').value  = P.emergencyContactPhone || '';
+    $('editModal').classList.add('open');
+  }
+
+  async function submitEdit() {
+    const btn = $('editBtn');
+    btn.disabled = true; btn.textContent = '⏳ Saving…';
+    const body = {};
+    const map = [['ef-fn','firstName',String],['ef-ln','lastName',String],['ef-ph','phone',String],
+      ['ef-dob','dateOfBirth',String],['ef-gnd','gender',String],['ef-addr','address',String],
+      ['ef-bl','bloodGroup',String],['ef-dsh','doshaType',String],
+      ['ef-ht','heightCm',parseFloat],['ef-wt','weightKg',parseFloat],
+      ['ef-hist','medicalHistory',String],['ef-ecn','emergencyContactName',String],['ef-ecp','emergencyContactPhone',String]];
+    map.forEach(([id,key,fn]) => { const v=$(id).value; if(v) body[key]=fn(v); });
+
+    try {
+      const res = await apiFetch('/patients/'+user.id+'/update', { method:'PUT', body:JSON.stringify(body) });
+      if (res.success) {
+        const updated = { ...user, firstName: body.firstName||user.firstName, lastName: body.lastName||user.lastName };
+        localStorage.setItem('user', JSON.stringify(updated));
+        P = { ...P, ...body };
+        Toast.success('Profile updated!');
+        closeModal('editModal');
+        renderPersonal(); renderMedical(); renderEmergency();
+        // Re-render hero name
+        $('heroName').textContent = (P.firstName||'')+' '+(P.lastName||'');
+        document.getElementById('anavUname') && (document.getElementById('anavUname').textContent = P.firstName||'');
+        if (P.doshaType) { $('heroBadge1').textContent = P.doshaType.replace('_','-')+' Dosha'; $('heroBadge1').style.display='inline'; }
+        if (P.bloodGroup){ $('heroBadge2').textContent = '🩸 '+P.bloodGroup; $('heroBadge2').style.display='inline'; }
+      } else {
+        Toast.error(res.message || 'Update failed');
+      }
+    } catch(e) {
+      Toast.error('Network error');
+    } finally {
+      btn.disabled=false; btn.textContent='💾 Save Changes';
+    }
+  }
+
+  // ── QR ────────────────────────────────────────────────────
+  function openQR() {
+    $('qrModal').classList.add('open');
+    const el = $('qrCanvas'); el.innerHTML='';
+    const patId = P.patientId || ('AYR-PAT-'+String(user.id).padStart(6,'0'));
+    $('qrName').textContent = (P.firstName||'')+' '+(P.lastName||'');
+    $('qrId').textContent   = patId;
+    if (qrI) { try{qrI.clear();}catch(e){} }
+    qrI = new QRCode(el, {
+      text: 'AYURSUTRA:'+patId+':'+(P.firstName||'')+' '+(P.lastName||'')+(P.email?':'+P.email:''),
+      width:170, height:170, colorDark:'#1a2f0d', colorLight:'#ffffff',
+      correctLevel: QRCode.CorrectLevel.H
+    });
+  }
+
+  function dlQR() {
+    const c = $('qrCanvas').querySelector('canvas');
+    if (!c) { Toast.error('Not ready'); return; }
+    const a=document.createElement('a'); a.download='AyurSutra-QR.png'; a.href=c.toDataURL(); a.click();
+  }
+
+  // ── Init ──────────────────────────────────────────────────
+  loadProfile();
+</script>
+</body>
+</html>

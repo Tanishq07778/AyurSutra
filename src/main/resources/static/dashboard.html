@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AyurSutra — Dashboard</title>
+  <style>
+    *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+    body {
+      font-family:'Segoe UI',sans-serif;
+      background:linear-gradient(135deg,#f5f1e8 0%,#e8dfd4 100%);
+      min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px;
+    }
+    .box {
+      max-width:460px; width:100%; background:white; padding:40px;
+      border-radius:16px; box-shadow:0 10px 40px rgba(45,80,22,.15); text-align:center;
+    }
+    .logo   { font-size:48px; margin-bottom:12px; }
+    h1      { color:#2d5016; margin-bottom:8px; font-family:Georgia,serif; }
+    .sub    { color:#8a9680; font-size:14px; margin-bottom:28px; }
+    .info   { background:#f5f1e8; border-radius:10px; padding:18px 22px; margin-bottom:24px; text-align:left; }
+    .info p { margin:5px 0; color:#444; font-size:14px; }
+    .info strong { color:#2d5016; }
+    .spinner { width:40px; height:40px; border:4px solid #f0f0f0; border-top:4px solid #2d5016; border-radius:50%; animation:spin .8s linear infinite; margin:0 auto 16px; }
+    @keyframes spin { to{transform:rotate(360deg)} }
+    .redirect { color:#8a9680; font-size:13px; }
+    .btn {
+      display:inline-block; margin-top:16px; padding:10px 22px;
+      background:#2d5016; color:white; border:none; border-radius:8px;
+      font-size:14px; font-weight:600; cursor:pointer; font-family:inherit;
+    }
+    .btn:hover { background:#1a2f0d; }
+  </style>
+</head>
+<body>
+<div class="box">
+  <div class="logo">🍃</div>
+  <h1>AyurSutra</h1>
+  <p class="sub">Redirecting to your dashboard...</p>
+  <div class="spinner" id="spinner"></div>
+  <div class="info" id="userInfo">Checking authentication...</div>
+  <p class="redirect" id="msg">Please wait…</p>
+</div>
+
+<script>
+  /*
+   * FIX: Previous version only checked token existence.
+   * Now also checks user.id and role, and redirects correctly:
+   *   DOCTOR → doctor-dashboard.html
+   *   PATIENT/default → profile.html
+   *   No auth → login.html
+   */
+  (function() {
+    const token = localStorage.getItem('token');
+    const user  = JSON.parse(localStorage.getItem('user') || '{}');
+
+    // Strict auth check
+    if (!token || !user.id) {
+      document.getElementById('userInfo').textContent = 'Not authenticated. Redirecting to login...';
+      document.getElementById('msg').textContent = '';
+      window.location.href = 'login.html';
+      return;
+    }
+
+    // Show user info briefly
+    document.getElementById('userInfo').innerHTML = `
+      <p><strong>Welcome back, ${user.firstName || ''} ${user.lastName || ''}!</strong></p>
+      <p>📧 ${user.email || '—'}</p>
+      <p>👤 Role: <strong>${user.role || 'PATIENT'}</strong></p>
+    `;
+
+    // Determine destination
+    const role = (user.role || '').toUpperCase();
+    let dest, label;
+    if (role === 'DOCTOR') {
+      dest  = 'doctor-dashboard.html';
+      label = 'Taking you to your doctor dashboard...';
+    } else if (role === 'ADMIN') {
+      dest  = 'admin-dashboard.html';
+      label = 'Taking you to admin panel...';
+    } else {
+      dest  = 'profile.html';
+      label = 'Taking you to your profile...';
+    }
+
+    document.getElementById('msg').textContent = label;
+    setTimeout(() => { window.location.href = dest; }, 1200);
+  })();
+</script>
+</body>
+</html>

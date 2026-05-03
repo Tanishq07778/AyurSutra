@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AyurSutra — Scan Patient QR</title>
+  <script src="shared.js"></script>
+  <!-- jsQR for QR decoding from camera -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
+</head>
+<body>
+<script>
+  injectSharedStyles();
+  Auth.requireDoctor();
+  buildNav('scan-patient.html');
+</script>
+
+<style>
+  .scan-layout {
+    max-width: 720px; margin: 40px auto; padding: 0 20px;
+    display: flex; flex-direction: column; gap: 24px;
+  }
+  .page-heading { text-align:center; margin-bottom:8px; }
+  .page-heading h1 { font-size:32px; }
+  .page-heading p  { color:var(--text-300); margin-top:6px; }
+
+  .scan-card {
+    background: var(--white); border:1px solid var(--border);
+    border-radius: var(--radius-lg); overflow: hidden;
+  }
+  .scan-tabs { display:flex; border-bottom:1px solid var(--border); }
+  .scan-tab {
+    flex:1; padding:14px; text-align:center; cursor:pointer;
+    font-size:14px; font-weight:600; color:var(--text-300);
+    background:none; border:none; border-bottom:2px solid transparent;
+    transition:all 0.2s;
+  }
+  .scan-tab.active { color:var(--green-700); border-bottom-color:var(--green-700); background:var(--green-50); }
+
+  /* Camera scanner */
+  .camera-wrap {
+    padding: 24px; display:flex; flex-direction:column; align-items:center; gap:20px;
+  }
+  .video-frame {
+    width: 100%; max-width: 380px; aspect-ratio:1;
+    border-radius: var(--radius-md); overflow:hidden;
+    background: #111; position:relative;
+    border: 3px solid var(--green-700);
+  }
+  .video-frame video { width:100%; height:100%; object-fit:cover; display:block; }
+  .video-frame canvas { display:none; }
+  .scan-corners {
+    position:absolute; inset:12px; pointer-events:none;
+  }
+  .scan-corners::before, .scan-corners::after,
+  .scan-corners span::before, .scan-corners span::after {
+    content:''; position:absolute; width:20px; height:20px;
+    border-color: var(--gold); border-style:solid;
+  }
+  .scan-corners::before { top:0; left:0; border-width:3px 0 0 3px; }
+  .scan-corners::after  { top:0; right:0; border-width:3px 3px 0 0; }
+  .scan-corners span::before { bottom:0; left:0; border-width:0 0 3px 3px; }
+  .scan-corners span::after  { bottom:0; right:0; border-width:0 3px 3px 0; }
+  .scan-line {
+    position:absolute; left:12px; right:12px; height:2px;
+    background:linear-gradient(90deg, transparent, var(--gold), transparent);
+    animation: scanMove 2s linear infinite;
+  }
+  @keyframes scanMove { 0%{top:12px} 100%{top:calc(100% - 14px)} }
+  .scan-status { font-size:14px; color:var(--text-300); text-align:center; }
+  .scan-status.scanning { color:var(--green-700); }
+  .scan-status.success  { color:var(--green-700); font-weight:600; }
+  .scan-status.error    { color:var(--red); }
+
+  /* Manual entry */
+  .manual-wrap { padding:28px; }
+  .manual-wrap h3 { font-size:20px; margin-bottom:6px; }
+  .manual-wrap p  { font-size:14px; color:var(--text-300); margin-bottom:20px; }
+  .id-input-wrap { position:relative; }
+  .id-input-wrap input { padding-left:48px; font-size:15px; font-weight:500; letter-spacing:0.5px; }
+  .id-input-icon { position:absolute; left:14px; top:50%; transform:translateY(-50%); font-size:20px; }
+
+  /* Found patient card */
+  .found-card {
+    background: var(--green-50); border:2px solid var(--green-600);
+    border-radius:var(--radius-md); padding:20px;
+    display:flex; align-items:center; gap:16px;
+    animation: slideUp 0.3s ease;
+  }
+  .found-info { flex:1; }
+  .found-name { font-family:'Cormorant Garamond',serif; font-size:20px; font-weight:700; }
+  .found-meta { display:flex; gap:12px; flex-wrap:wrap; margin-top:8px; }
+  .found-meta span { font-size:13px; color:var(--text-500); }
+
+  /* History list */
+  .history-item {
+    display:flex; align-items:center; gap:12px; padding:12px 0;
+    border-bottom:1px solid var(--border); cursor:pointer;
+    transition:background 0.15s;
+  }
+  .history-item:last-child { border-bottom:none; }
+  .history-item:hover { background:var(--cream); margin:0 -8px; padding:12px 8px; border-radius:var(--radius-sm); }
+</style>
+
+<div class="scan-layout">
+  <div class="page-heading">
+    <h1>📷 Scan Patient</h1>
+    <p>Use camera or enter patient ID manually to view records</p>
+  </div>
+
+  <div class="scan-card">
+    <div class="scan-tabs">
+      <button class="scan-tab active" onclick="switchTab('camera', this)">📷 Camera Scan</button>
+      <button class="scan-tab" onclick="switchTab('manual', this)">⌨️ Manual Entry</button>
+    </div>
+
+    <!-- Camera Tab -->
+    <div id="tab-camera" class="camera-wrap">
+      <div class="video-frame" id="videoFrame">
+        <video id="video" autoplay playsinline muted></video>
+        <canvas id="canvas"></canvas>
+        <div class="scan-corners"><span></span></div>
+        <div class="scan-line" id="scanLine"></div>
+      </div>
+      <p class="scan-status" id="cameraStatus">Starting camera...</p>
+      <div style="display:flex;gap:12px;">
+        <button class="btn btn-primary" id="startBtn" onclick="startCamera()">▶ Start Camera</button>
+        <button class="btn btn-secondary" id="stopBtn" onclick="stopCamera()" style="display:none;">⏹ Stop</button>
+      </div>
+      <p style="font-size:12px;color:var(--text-300);text-align:center;">
+        Point the camera at a patient's AyurSutra QR code
+      </p>
+    </div>
+
+    <!-- Manual Tab -->
+    <div id="tab-manual" style="display:none;" class="manual-wrap">
+      <h3>Enter Patient ID</h3>
+      <p>Type the patient's AyurSutra ID (e.g. AYR-PAT-000001) or scan from QR code</p>
+      <div class="form-group">
+        <div class="id-input-wrap">
+          <span class="id-input-icon">🪪</span>
+          <input type="text" class="form-control" id="manualId"
+                 placeholder="AYR-PAT-000001"
+                 oninput="this.value=this.value.toUpperCase()"
+                 onkeydown="if(event.key==='Enter') searchByManualId()">
+        </div>
+        <div class="form-hint">Format: AYR-PAT-XXXXXX or AYR-QR-XXXXXXXX</div>
+      </div>
+      <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="searchByManualId()">
+        🔍 Find Patient
+      </button>
+    </div>
+  </div>
+
+  <!-- Found Patient Result -->
+  <div id="foundSection" style="display:none;">
+    <div class="found-card" id="foundCard">
+      <div class="avatar avatar-lg" id="foundAvatar">?</div>
+      <div class="found-info">
+        <div class="found-name" id="foundName">—</div>
+        <div class="found-meta">
+          <span id="foundId">—</span>
+          <span>•</span>
+          <span id="foundDosha">—</span>
+          <span>•</span>
+          <span id="foundAge">—</span>
+        </div>
+      </div>
+      <a class="btn btn-primary" id="foundViewBtn" href="#">View Full Profile →</a>
+    </div>
+  </div>
+
+  <!-- Recent Scans -->
+  <div class="card card-p">
+    <h3 class="card-title" style="margin-bottom:16px;">Recent Scans</h3>
+    <div id="historyList">
+      <div class="state-box" style="padding:24px;">
+        <div class="state-icon">🕐</div>
+        <p>No recent scans this session</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let stream = null;
+  let scanInterval = null;
+  let scanHistory = [];
+
+  // ── Tab Switching ─────────────────────────────────────────
+  function switchTab(tab, el) {
+    document.querySelectorAll('.scan-tab').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    document.getElementById('tab-camera').style.display = tab === 'camera' ? 'flex' : 'none';
+    document.getElementById('tab-manual').style.display  = tab === 'manual'  ? 'block' : 'none';
+    if (tab !== 'camera') stopCamera();
+  }
+
+  // ── Camera ───────────────────────────────────────────────
+  async function startCamera() {
+    const status = document.getElementById('cameraStatus');
+    const startBtn = document.getElementById('startBtn');
+    const stopBtn  = document.getElementById('stopBtn');
+    try {
+      status.textContent = 'Requesting camera access...';
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      const video = document.getElementById('video');
+      video.srcObject = stream;
+      video.play();
+      startBtn.style.display = 'none';
+      stopBtn.style.display  = 'block';
+      status.textContent = 'Scanning for QR code...';
+      status.className = 'scan-status scanning';
+      startQRScan();
+    } catch(e) {
+      status.textContent = '⚠ Camera not available. Use manual entry instead.';
+      status.className = 'scan-status error';
+    }
+  }
+
+  function stopCamera() {
+    if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+    clearInterval(scanInterval);
+    document.getElementById('startBtn').style.display = 'block';
+    document.getElementById('stopBtn').style.display  = 'none';
+    document.getElementById('cameraStatus').textContent = 'Camera stopped.';
+    document.getElementById('cameraStatus').className = 'scan-status';
+  }
+
+  function startQRScan() {
+    const video  = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const ctx    = canvas.getContext('2d');
+
+    scanInterval = setInterval(() => {
+      if (video.readyState !== video.HAVE_ENOUGH_DATA) return;
+      canvas.width  = video.videoWidth;
+      canvas.height = video.videoHeight;
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const code = window.jsQR && jsQR(imageData.data, imageData.width, imageData.height);
+      if (code && code.data) {
+        handleQRResult(code.data);
+      }
+    }, 300);
+  }
+
+  function handleQRResult(qrData) {
+    clearInterval(scanInterval);
+    stopCamera();
+    document.getElementById('cameraStatus').textContent = `✓ QR Detected: ${qrData}`;
+    document.getElementById('cameraStatus').className = 'scan-status success';
+
+    // Format: AYURSUTRA:AYR-PAT-000001:Name:email  OR  just QR-uuid  OR  raw ID
+    let patientRef = qrData;
+    if (qrData.startsWith('AYURSUTRA:')) {
+      const parts = qrData.split(':');
+      patientRef = parts[1]; // AYR-PAT-000001
+    }
+    searchPatient(patientRef);
+  }
+
+  // ── Manual Search ─────────────────────────────────────────
+  function searchByManualId() {
+    const val = document.getElementById('manualId').value.trim();
+    if (!val) { Toast.warning('Please enter a patient ID'); return; }
+    searchPatient(val);
+  }
+
+  // ── Patient Lookup ────────────────────────────────────────
+  async function searchPatient(ref) {
+    const foundSection = document.getElementById('foundSection');
+    foundSection.style.display = 'block';
+    document.getElementById('foundCard').innerHTML = loadingHTML('Looking up patient...');
+
+    try {
+      let patient = null;
+
+      // Try QR code lookup first (for QR-uuid format)
+      if (ref.startsWith('QR-') || ref.startsWith('AYR-QR-')) {
+        try {
+          const r = await apiFetch(`/patients/qr/${ref}`);
+          if (r.data) patient = r.data;
+        } catch(e) {}
+      }
+
+      // Try by patient ID text search (backend TODO: implement this)
+      if (!patient) {
+        try {
+          const r = await apiFetch(`/patients`);
+          const all = r.data || [];
+          patient = all.find(p => p.patientId === ref || p.id == ref || (p.qrCode && p.qrCode === ref));
+        } catch(e) {}
+      }
+
+      if (patient) {
+        renderFoundPatient(patient);
+        addToHistory(patient);
+      } else {
+        document.getElementById('foundCard').innerHTML = `
+          <div style="text-align:center;width:100%;padding:12px;">
+            <div style="font-size:32px;margin-bottom:8px;">❌</div>
+            <div style="font-weight:600;color:var(--red);">Patient not found</div>
+            <div style="font-size:13px;color:var(--text-300);margin-top:4px;">ID: ${ref}</div>
+          </div>`;
+      }
+    } catch(e) {
+      document.getElementById('foundCard').innerHTML = errorHTML('Could not search patient. Check your connection.');
+    }
+  }
+
+  function renderFoundPatient(p) {
+    const initials = getInitials(p.firstName, p.lastName);
+    const bg = getAvatarColor((p.firstName||'') + (p.lastName||''));
+    const dosha = (p.doshaType || '—').replace('_','-');
+    const patId = p.patientId || ('AYR-PAT-' + String(p.id).padStart(6,'0'));
+
+    document.getElementById('foundCard').outerHTML = `
+      <div class="found-card" id="foundCard">
+        <div class="avatar avatar-lg" style="background:${bg};flex-shrink:0;">${initials}</div>
+        <div class="found-info">
+          <div class="found-name">${p.firstName} ${p.lastName}</div>
+          <div class="found-meta">
+            <span>🪪 ${patId}</span>
+            <span>• ${dosha}</span>
+            ${p.dateOfBirth ? `<span>• Age ${new Date().getFullYear() - new Date(p.dateOfBirth).getFullYear()}</span>` : ''}
+            ${p.bloodGroup ? `<span>• 🩸 ${p.bloodGroup}</span>` : ''}
+          </div>
+        </div>
+        <a class="btn btn-primary" href="patient-profile-doctor.html?id=${p.id}">View Profile →</a>
+      </div>`;
+    Toast.success(`Patient found: ${p.firstName} ${p.lastName}`);
+  }
+
+  function addToHistory(p) {
+    scanHistory.unshift(p);
+    if (scanHistory.length > 5) scanHistory.pop();
+    renderHistory();
+  }
+
+  function renderHistory() {
+    if (!scanHistory.length) return;
+    document.getElementById('historyList').innerHTML = scanHistory.map(p => {
+      const bg = getAvatarColor((p.firstName||'')+(p.lastName||''));
+      const initials = getInitials(p.firstName, p.lastName);
+      const patId = p.patientId || ('AYR-PAT-'+String(p.id).padStart(6,'0'));
+      return `
+        <div class="history-item" onclick="window.location.href='patient-profile-doctor.html?id=${p.id}'">
+          <div class="avatar avatar-sm" style="background:${bg}">${initials}</div>
+          <div style="flex:1">
+            <div style="font-size:14px;font-weight:600;">${p.firstName} ${p.lastName}</div>
+            <div style="font-size:12px;color:var(--text-300)">${patId}</div>
+          </div>
+          <span style="font-size:12px;color:var(--text-300)">Just now →</span>
+        </div>`;
+    }).join('');
+  }
+
+  // Auto-start camera on load
+  document.addEventListener('DOMContentLoaded', startCamera);
+</script>
+</body>
+</html>

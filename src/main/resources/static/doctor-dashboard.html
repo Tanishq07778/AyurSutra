@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AyurSutra — Doctor Dashboard</title>
+    <script src="shared.js"></script>
+</head>
+<body>
+<script>
+    injectSharedStyles();
+    Auth.requireDoctor();
+    buildNav('doctor-dashboard.html');
+</script>
+
+<style>
+    /* ── Hero ─── */
+    .doc-hero {
+      background: linear-gradient(135deg, var(--g9) 0%, var(--g8) 55%, #0a1f08 100%);
+      position: relative; overflow: hidden;
+    }
+    .doc-hero::before {
+      content:''; position:absolute; inset:0; opacity:.04;
+      background-image: repeating-linear-gradient(45deg,rgba(255,255,255,.5) 0,rgba(255,255,255,.5) 1px,transparent 0,transparent 50%);
+      background-size:40px 40px;
+    }
+    .dh-inner {
+      max-width:1440px; margin:0 auto; padding:30px 28px;
+      display:flex; align-items:center; justify-content:space-between;
+      gap:24px; flex-wrap:wrap; position:relative; z-index:1;
+    }
+    .dh-left h1 { font-family:'Lora',serif; font-size:26px; color:white; margin-bottom:6px; }
+    .dh-left p  { font-size:13px; color:rgba(255,255,255,.5); }
+    .dh-stats   { display:flex; gap:20px; flex-wrap:wrap; }
+    .dh-stat    { background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.1); border-radius:var(--r12); padding:14px 20px; text-align:center; min-width:90px; }
+    .dh-sv      { font-family:'Lora',serif; font-size:24px; font-weight:700; color:white; line-height:1; }
+    .dh-sl      { font-size:11px; color:rgba(255,255,255,.4); margin-top:4px; }
+
+    /* ── Strip ─── */
+    .doc-strip {
+      background:var(--white); border-bottom:1px solid var(--paper3);
+      box-shadow:var(--sh1); position:sticky; top:var(--nav); z-index:100;
+    }
+    .ds-inner {
+      max-width:1440px; margin:0 auto; padding:0 28px;
+      display:flex; overflow-x:auto; scrollbar-width:none;
+    }
+    .ds-inner::-webkit-scrollbar { display:none; }
+    .ds-tab {
+      flex-shrink:0; padding:12px 22px; background:none;
+      border:none; border-bottom:3px solid transparent;
+      font-size:13px; font-weight:600; color:var(--ink4); cursor:pointer; transition:all .18s;
+      display:flex; align-items:center; gap:7px;
+    }
+    .ds-tab:hover  { color:var(--g7); background:var(--g0); }
+    .ds-tab.active { color:var(--g7); border-bottom-color:var(--g7); background:var(--g0); }
+    .ds-tab-icon   { font-size:17px; }
+
+    /* ── Body ─── */
+    .doc-body { max-width:1440px; margin:0 auto; padding:24px 28px; }
+    .doc-grid { display:grid; grid-template-columns:1fr 320px; gap:24px; }
+
+    /* ── Section ─── */
+    .sec-pane { display:none; }
+    .sec-pane.active { display:block; }
+
+    /* ── Panel ─── */
+    .panel { background:var(--white); border:1px solid var(--paper3); border-radius:var(--r16); overflow:hidden; margin-bottom:20px; }
+    .panel-hd { display:flex; align-items:center; justify-content:space-between; padding:16px 22px; border-bottom:1px solid var(--paper3); }
+    .panel-tt { font-family:'Lora',serif; font-size:16px; font-weight:600; }
+    .panel-bd { padding:18px 22px; }
+
+    /* ── Schedule ─── */
+    .sched-row { display:flex; align-items:center; gap:14px; padding:12px 0; border-bottom:1px solid var(--paper3); }
+    .sched-row:last-child { border-bottom:none; }
+    .sched-time { font-size:12px; font-weight:700; color:var(--ink4); width:72px; flex-shrink:0; font-variant-numeric:tabular-nums; }
+    .sched-dot  { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+    .dot-completed { background:var(--g5); }
+    .dot-ongoing   { background:var(--gold); box-shadow:0 0 0 3px rgba(212,175,55,.25); }
+    .dot-upcoming  { background:var(--paper3); }
+    .sched-info { flex:1; }
+    .sched-name { font-size:13px; font-weight:600; }
+    .sched-type { font-size:11px; color:var(--ink4); margin-top:1px; }
+    .sched-badge { font-size:10px; font-weight:700; padding:2px 8px; border-radius:10px; }
+    .sb-c { background:var(--g1); color:var(--g7); }
+    .sb-o { background:#fef9e7; color:#8b6914; }
+    .sb-u { background:#f3f4f6; color:#6b7280; }
+
+    /* ── Patient row ─── */
+    .pat-row { display:flex; align-items:center; gap:12px; padding:11px 0; border-bottom:1px solid var(--paper3); cursor:pointer; transition:background .15s; border-radius:var(--r8); }
+    .pat-row:last-child { border-bottom:none; }
+    .pat-row:hover { background:var(--g0); padding-left:8px; padding-right:8px; margin:0 -8px; }
+    .pat-info { flex:1; }
+    .pat-name { font-size:13px; font-weight:600; }
+    .pat-sub  { font-size:11px; color:var(--ink4); margin-top:1px; }
+
+    /* ── Quick action tiles ─── */
+    .qa-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .qa-tile {
+      display:flex; flex-direction:column; align-items:center; justify-content:center;
+      gap:8px; padding:18px 12px; border-radius:var(--r12);
+      border:1.5px solid var(--paper3); background:var(--white);
+      cursor:pointer; text-decoration:none; transition:all .2s;
+    }
+    .qa-tile:hover { border-color:var(--g5); background:var(--g0); transform:translateY(-2px); }
+    .qa-icon  { font-size:26px; }
+    .qa-label { font-size:12px; font-weight:600; color:var(--ink2); text-align:center; }
+
+    /* ── Doctor info sidebar ─── */
+    .doc-card { background:linear-gradient(160deg,var(--g8),var(--g9)); border-radius:var(--r16); padding:22px; color:white; position:relative; overflow:hidden; margin-bottom:16px; }
+    .doc-card::after { content:'🌿'; position:absolute; right:14px; bottom:-8px; font-size:64px; opacity:.1; }
+    .dc-av { width:60px;height:60px;border-radius:50%;border:3px solid var(--gold);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;margin-bottom:12px; }
+    .dc-name { font-family:'Lora',serif; font-size:17px; font-weight:600; margin-bottom:2px; }
+    .dc-spec { font-size:12px; color:rgba(255,255,255,.5); margin-bottom:12px; }
+    .dc-row  { display:flex; justify-content:space-between; padding:7px 0; border-bottom:1px solid rgba(255,255,255,.08); font-size:12px; }
+    .dc-row:last-child { border-bottom:none; }
+    .dc-key  { color:rgba(255,255,255,.45); }
+    .dc-val  { font-weight:600; }
+
+    @media(max-width:1000px) { .doc-grid { grid-template-columns:1fr; } }
+    @media(max-width:640px)  { .dh-stats { gap:10px; } .dh-stat { padding:10px 14px; min-width:70px; } .doc-body { padding:16px; } }
+</style>
+
+<!-- HERO -->
+<div class="doc-hero">
+    <div class="dh-inner">
+        <div class="dh-left">
+            <h1 id="dhGreet">Good day, Dr. …</h1>
+            <p>Here's your practice overview for today</p>
+        </div>
+        <div class="dh-stats">
+            <div class="dh-stat"><div class="dh-sv" id="ds1">—</div><div class="dh-sl">Today</div></div>
+            <div class="dh-stat"><div class="dh-sv" id="ds2">—</div><div class="dh-sl">Patients</div></div>
+            <div class="dh-stat"><div class="dh-sv" id="ds3">—</div><div class="dh-sl">This Week</div></div>
+            <div class="dh-stat"><div class="dh-sv" id="ds4">—</div><div class="dh-sl">Pending</div></div>
+        </div>
+    </div>
+</div>
+
+<!-- STRIP -->
+<div class="doc-strip">
+    <div class="ds-inner">
+        <button class="ds-tab active" onclick="showPane('overview', this)">
+            <span class="ds-tab-icon">🏠</span> Overview
+        </button>
+        <button class="ds-tab" onclick="showPane('patients', this)">
+            <span class="ds-tab-icon">👥</span> Patients
+        </button>
+        <button class="ds-tab" onclick="showPane('schedule', this)">
+            <span class="ds-tab-icon">📅</span> Schedule
+        </button>
+    </div>
+</div>
+
+<!-- BODY -->
+<div class="doc-body">
+    <div class="doc-grid">
+
+        <!-- LEFT -->
+        <div>
+
+            <!-- Overview pane -->
+            <div class="sec-pane active" id="pane-overview">
+
+                <!-- Today's Schedule (preview) -->
+                <div class="panel">
+                    <div class="panel-hd">
+                        <span class="panel-tt">Today's Schedule</span>
+                        <span class="badge badge-green" id="schedCount">—</span>
+                    </div>
+                    <div class="panel-bd" id="schedList">
+                        <div class="s-box"><div class="s-spin"></div></div>
+                    </div>
+                </div>
+
+                <!-- Recent Patients -->
+                <div class="panel">
+                    <div class="panel-hd">
+                        <span class="panel-tt">Recent Patients</span>
+                        <a href="scan-patient.html" class="btn btn-primary btn-sm">📷 Scan QR</a>
+                    </div>
+                    <div class="panel-bd" id="recentPats">
+                        <div class="s-box"><div class="s-spin"></div></div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Patients pane -->
+            <div class="sec-pane" id="pane-patients">
+                <div class="panel">
+                    <div class="panel-hd">
+                        <span class="panel-tt">All Patients</span>
+                        <div style="display:flex;gap:8px;align-items:center;">
+                            <input type="text" class="form-ctrl" id="patSearch" placeholder="Search patients…" oninput="filterPatients()" style="width:180px;padding:6px 10px;font-size:13px;">
+                            <a href="scan-patient.html" class="btn btn-primary btn-sm">📷 Scan</a>
+                        </div>
+                    </div>
+                    <div class="panel-bd" id="allPatsList">
+                        <div class="s-box"><div class="s-spin"></div></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Schedule pane -->
+            <div class="sec-pane" id="pane-schedule">
+                <div class="panel">
+                    <div class="panel-hd">
+                        <span class="panel-tt">Full Schedule</span>
+                    </div>
+                    <div class="panel-bd" id="fullSched">
+                        <div class="s-box"><div class="s-spin"></div></div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- SIDEBAR -->
+        <div>
+
+            <!-- Doctor info card -->
+            <div class="doc-card">
+                <div class="dc-av" id="dcAv" style="background:var(--g7);">?</div>
+                <div class="dc-name" id="dcName">Loading…</div>
+                <div class="dc-spec" id="dcSpec">—</div>
+                <div style="margin-bottom:12px;"><span class="badge badge-green" style="font-size:11px;">● Available</span></div>
+                <div class="dc-row"><span class="dc-key">License</span><span class="dc-val" id="dcLic">—</span></div>
+                <div class="dc-row"><span class="dc-key">Experience</span><span class="dc-val" id="dcExp">—</span></div>
+                <div class="dc-row"><span class="dc-key">Fee</span><span class="dc-val" id="dcFee">—</span></div>
+            </div>
+
+            <!-- Quick actions -->
+            <div class="panel">
+                <div class="panel-hd"><span class="panel-tt">Quick Actions</span></div>
+                <div class="panel-bd">
+                    <div class="qa-grid">
+                        <a href="scan-patient.html" class="qa-tile"><span class="qa-icon">📷</span><span class="qa-label">Scan Patient QR</span></a>
+                        <div class="qa-tile" onclick="Toast.info('Coming soon!')"><span class="qa-icon">📅</span><span class="qa-label">Appointments</span></div>
+                        <div class="qa-tile" onclick="Toast.info('Coming soon!')"><span class="qa-icon">📝</span><span class="qa-label">Write Prescription</span></div>
+                        <div class="qa-tile" onclick="showPane('patients',document.querySelector(\'.ds-tab:nth-child(2)\'))"><span class="qa-icon">👥</span><span class="qa-label">View Patients</span></div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script>
+    (async function init() {
+      const u = Auth.user();
+
+      // ── Greeting ──────────────────────────────────────────────
+      const h = new Date().getHours();
+      const gr = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
+      document.getElementById('dhGreet').textContent = `${gr}, Dr. ${u.firstName || 'Doctor'}`;
+
+      // ── Load doctor profile ────────────────────────────────────
+      try {
+        const res = await apiFetch('/doctors/' + u.id);
+        const doc = res.data || {};
+        const initials = getInitials(doc.firstName || u.firstName, doc.lastName || u.lastName);
+        const bg = getAvatarColor((doc.firstName||'') + (doc.lastName||''));
+        document.getElementById('dcAv').textContent   = initials;
+        document.getElementById('dcAv').style.background = bg;
+        document.getElementById('anavAv') && (document.getElementById('anavAv').textContent = initials, document.getElementById('anavAv').style.background = bg);
+        document.getElementById('dcName').textContent = `Dr. ${doc.firstName||''} ${doc.lastName||''}`;
+        document.getElementById('dcSpec').textContent = doc.specialization || 'Ayurvedic Physician';
+        document.getElementById('dcLic').textContent  = doc.licenseNumber  || '—';
+        document.getElementById('dcExp').textContent  = doc.experienceYears ? doc.experienceYears + ' yrs' : '—';
+        document.getElementById('dcFee').textContent  = doc.consultationFee ? '₹' + doc.consultationFee : '—';
+      } catch(e) {
+        const init = getInitials(u.firstName, u.lastName);
+        document.getElementById('dcAv').textContent = init;
+        document.getElementById('dcAv').style.background = getAvatarColor(u.firstName + u.lastName);
+        document.getElementById('dcName').textContent = `Dr. ${u.firstName||''} ${u.lastName||''}`;
+      }
+
+      // ── Stats ──────────────────────────────────────────────────
+      const stats = MockData.doctorStats;
+      document.getElementById('ds1').textContent = stats.todayAppointments;
+      document.getElementById('ds3').textContent = stats.completedThisWeek;
+      document.getElementById('ds4').textContent = stats.pendingReports;
+
+      // Real patient count
+      try {
+        const res = await apiFetch('/patients');
+        const cnt = (res.data || []).length;
+        document.getElementById('ds2').textContent = cnt || stats.totalPatients;
+      } catch(e) {
+        document.getElementById('ds2').textContent = stats.totalPatients;
+      }
+
+      // ── Schedule ───────────────────────────────────────────────
+      const sched = MockData.todaySchedule;
+      document.getElementById('schedCount').textContent = sched.length + ' appts';
+      const schedHtml = sched.length === 0
+        ? emptyHTML('📅', 'No appointments today')
+        : sched.map(s => `
+            <div class="sched-row">
+              <span class="sched-time">${s.time}</span>
+              <span class="sched-dot dot-${s.status}"></span>
+              <div class="sched-info">
+                <div class="sched-name">${s.patient}</div>
+                <div class="sched-type">${s.type}</div>
+              </div>
+              <span class="sched-badge sb-${s.status[0]}">${s.status}</span>
+            </div>`).join('');
+      document.getElementById('schedList').innerHTML = schedHtml;
+      document.getElementById('fullSched').innerHTML = schedHtml;
+
+      // ── Patients ───────────────────────────────────────────────
+      let allPatients = [];
+      try {
+        const res = await apiFetch('/patients');
+        allPatients = res.data || [];
+      } catch(e) {
+        allPatients = MockData.recentPatients;
+      }
+      if (!allPatients.length) allPatients = MockData.recentPatients;
+
+      renderPatients('recentPats',  allPatients.slice(0, 5));
+      renderPatients('allPatsList', allPatients);
+
+      function renderPatients(containerId, list) {
+        document.getElementById(containerId).innerHTML = list.length === 0
+          ? emptyHTML('👥', 'No patients yet', 'Scan a QR code to find a patient')
+          : list.map(p => {
+              const initials = getInitials(p.firstName, p.lastName);
+              const bg = getAvatarColor((p.firstName||'') + (p.lastName||''));
+              const dosha = (p.doshaType || 'other').toLowerCase();
+              const patId = p.patientId || ('AYR-PAT-' + String(p.id).padStart(6,'0'));
+              return `<div class="pat-row" onclick="window.location.href='patient-profile-doctor.html?id=${p.id}'">
+                <div class="avatar avatar-sm" style="background:${bg}">${initials}</div>
+                <div class="pat-info">
+                  <div class="pat-name">${p.firstName} ${p.lastName}</div>
+                  <div class="pat-sub">${patId} · ${timeAgo(p.updatedAt || p.createdAt)}</div>
+                </div>
+                <span class="badge dosha-${dosha}" style="font-size:10px;">${(p.doshaType||'—').replace('_','-')}</span>
+                <a href="patient-profile-doctor.html?id=${p.id}" class="btn btn-secondary btn-sm" onclick="event.stopPropagation()">View</a>
+              </div>`;
+            }).join('');
+      }
+
+      window.__allPatients = allPatients;
+      window.filterPatients = function() {
+        const q = document.getElementById('patSearch').value.toLowerCase();
+        const filtered = window.__allPatients.filter(p =>
+          (p.firstName + ' ' + p.lastName).toLowerCase().includes(q) ||
+          (p.patientId||'').toLowerCase().includes(q)
+        );
+        renderPatients('allPatsList', filtered);
+      };
+    })();
+
+    // ── Tab switching ──────────────────────────────────────────
+    function showPane(name, btn) {
+      document.querySelectorAll('.ds-tab').forEach(b => b.classList.remove('active'));
+      if (btn) btn.classList.add('active');
+      document.querySelectorAll('.sec-pane').forEach(p => p.classList.remove('active'));
+      document.getElementById('pane-' + name)?.classList.add('active');
+    }
+</script>
+</body>
+</html>

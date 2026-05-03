@@ -1,0 +1,13 @@
+HELP.md
+target/
+!.mvn/wrapper/maven-wrapper.jar
+
+### IDEs ###
+.idea/
+.vscode/
+*.iml
+
+### Secrets and Uploads ###
+src/main/resources/google-vision-key.json
+uploads/
+*.class
