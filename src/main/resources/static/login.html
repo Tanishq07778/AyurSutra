@@ -4,139 +4,119 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AyurSutra — Sign In</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=Lora:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
   <style>
-    *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
-    :root {
-      --g9:#0f1a08; --g8:#1a2f0d; --g7:#2d5016; --g5:#4e8c28;
-      --g1:#e8f5d8; --g0:#f4fbee; --gold:#d4af37;
-      --ink:#0f1a08; --ink2:#2c3520; --ink3:#5a6650; --ink4:#8a9680;
-      --paper:#f8f6f0; --paper2:#ede9df; --paper3:#ddd8cc;
-      --white:#ffffff; --red:#c0392b; --red-l:#fde8e6;
-      --r8:8px; --r12:12px; --r24:24px;
+    *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+    :root{
+      --g9:#0f1a08;--g8:#1a2f0d;--g7:#2d5016;--g5:#4e8c28;
+      --g1:#e8f5d8;--g0:#f4fbee;--gold:#d4af37;
+      --ink:#0f1a08;--ink2:#2c3520;--ink3:#5a6650;--ink4:#8a9680;
+      --paper:#f8f6f0;--paper2:#ede9df;--paper3:#ddd8cc;
+      --white:#ffffff;--red:#c0392b;--red-l:#fde8e6;
+      --r8:8px;--r12:12px;--r16:16px;--r24:24px;
     }
-    html, body { height:100%; }
-    body { font-family:'Sora',sans-serif; background:var(--paper); display:flex; flex-direction:column; min-height:100vh; }
+    html,body{height:100%;font-family:'Sora',sans-serif;background:var(--paper)}
+    body{display:flex;flex-direction:column;min-height:100vh}
 
-    .topbar { height:54px; background:var(--g9); display:flex; align-items:center; padding:0 28px; border-bottom:1px solid rgba(255,255,255,.06); flex-shrink:0; }
-    .tb-brand { display:flex; align-items:center; gap:9px; }
-    .tb-brand-name { font-family:'Lora',serif; font-size:17px; font-weight:600; color:white; }
-    .tb-right { margin-left:auto; font-size:13px; color:rgba(255,255,255,.45); }
-    .tb-right a { color:rgba(255,255,255,.7); text-decoration:none; font-weight:600; margin-left:6px; }
-    .tb-right a:hover { color:white; }
+    /* topbar */
+    .topbar{height:54px;background:var(--g9);display:flex;align-items:center;padding:0 28px;border-bottom:1px solid rgba(255,255,255,.06);flex-shrink:0}
+    .tb-brand{display:flex;align-items:center;gap:9px}
+    .tb-name{font-family:'Lora',serif;font-size:17px;font-weight:600;color:white}
+    .tb-right{margin-left:auto;font-size:13px;color:rgba(255,255,255,.45)}
+    .tb-right a{color:rgba(255,255,255,.7);text-decoration:none;font-weight:600;margin-left:6px}
 
-    .main { flex:1; display:grid; grid-template-columns:1fr 480px; }
+    /* layout */
+    .main{flex:1;display:grid;grid-template-columns:1fr 480px}
+    .left{background:linear-gradient(160deg,var(--g8) 0%,var(--g9) 60%,#071204 100%);padding:60px 56px;display:flex;flex-direction:column;justify-content:center;position:relative;overflow:hidden}
+    .left::before{content:'';position:absolute;inset:0;opacity:.04;background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.5) 0,rgba(255,255,255,.5) 1px,transparent 0,transparent 50%);background-size:36px 36px}
+    .li{position:relative;z-index:1}
+    .eyebrow{display:inline-flex;align-items:center;gap:8px;background:var(--gold);color:var(--g9);font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:4px 12px;border-radius:20px;margin-bottom:20px}
+    .big-title{font-family:'Lora',serif;font-size:36px;font-weight:600;color:white;line-height:1.2;margin-bottom:14px}
+    .big-title span{color:var(--gold);font-style:italic}
+    .sub{font-size:14px;color:rgba(255,255,255,.5);margin-bottom:36px;line-height:1.6}
+    .feats{display:flex;flex-direction:column;gap:14px}
+    .feat{display:flex;align-items:center;gap:14px}
+    .feat-ic{width:38px;height:38px;border-radius:10px;background:rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+    .feat-tx{font-size:13px;color:rgba(255,255,255,.65)}
 
-    .left-panel {
-      background:linear-gradient(160deg, var(--g8) 0%, var(--g9) 60%, #071204 100%);
-      padding:60px 56px; display:flex; flex-direction:column; justify-content:center;
-      position:relative; overflow:hidden;
-    }
-    .left-panel::before {
-      content:''; position:absolute; inset:0; opacity:.04;
-      background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.5) 0,rgba(255,255,255,.5) 1px,transparent 0,transparent 50%);
-      background-size:36px 36px;
-    }
-    .lp-inner { position:relative; z-index:1; }
-    .lp-eyebrow { display:inline-flex; align-items:center; gap:8px; background:var(--gold); color:var(--g9); font-size:11px; font-weight:700; letter-spacing:1px; text-transform:uppercase; padding:4px 12px; border-radius:20px; margin-bottom:20px; }
-    .lp-title { font-family:'Lora',serif; font-size:36px; font-weight:600; color:white; line-height:1.2; margin-bottom:14px; }
-    .lp-title span { color:var(--gold); font-style:italic; }
-    .lp-sub { font-size:14px; color:rgba(255,255,255,.5); margin-bottom:36px; line-height:1.6; }
-    .lp-features { display:flex; flex-direction:column; gap:14px; }
-    .lp-feat { display:flex; align-items:center; gap:14px; }
-    .lp-fi { width:38px; height:38px; border-radius:10px; background:rgba(255,255,255,.08); display:flex; align-items:center; justify-content:center; font-size:18px; flex-shrink:0; }
-    .lp-ft { font-size:13px; color:rgba(255,255,255,.65); }
+    /* right panel */
+    .right{background:var(--white);padding:50px 44px;display:flex;flex-direction:column;justify-content:center;overflow-y:auto}
+    .form-head{margin-bottom:28px}
+    .form-title{font-family:'Lora',serif;font-size:28px;font-weight:600;color:var(--ink);margin-bottom:4px}
+    .form-sub{font-size:13px;color:var(--ink4)}
 
-    .right-panel { background:var(--white); padding:50px 44px; display:flex; flex-direction:column; justify-content:center; overflow-y:auto; }
+    /* google btn */
+    .g-btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:12px;border:1.5px solid var(--paper3);border-radius:var(--r8);background:var(--white);cursor:pointer;font-size:14px;font-weight:600;color:var(--ink2);font-family:'Sora',sans-serif;transition:all .18s;margin-bottom:20px}
+    .g-btn:hover{border-color:var(--g7);background:var(--g0)}
 
-    .form-header { margin-bottom:28px; }
-    .form-title  { font-family:'Lora',serif; font-size:28px; font-weight:600; color:var(--ink); margin-bottom:4px; }
-    .form-sub    { font-size:13px; color:var(--ink4); }
+    /* divider */
+    .divider{display:flex;align-items:center;gap:12px;margin:0 0 20px;color:var(--ink4);font-size:13px}
+    .divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--paper3)}
 
-    .oauth-btn {
-      display:flex; align-items:center; justify-content:center; gap:10px;
-      width:100%; padding:12px; border:1.5px solid var(--paper3); border-radius:var(--r8);
-      background:var(--white); cursor:pointer; font-size:14px; font-weight:600;
-      color:var(--ink2); font-family:'Sora',sans-serif; transition:all .18s; margin-bottom:20px;
-    }
-    .oauth-btn:hover { border-color:var(--g7); background:var(--g0); }
+    /* form */
+    .fg{margin-bottom:15px}
+    .fl{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--ink3);margin-bottom:5px}
+    .fc{width:100%;padding:11px 14px;border:1.5px solid var(--paper3);border-radius:var(--r8);font-size:14px;font-family:'Sora',sans-serif;color:var(--ink2);background:var(--white);transition:all .18s}
+    .fc:focus{outline:none;border-color:var(--g7);box-shadow:0 0 0 3px rgba(45,80,22,.1)}
 
-    .divider { display:flex; align-items:center; gap:12px; margin:0 0 20px; color:var(--ink4); font-size:13px; }
-    .divider::before, .divider::after { content:''; flex:1; height:1px; background:var(--paper3); }
+    .sub-btn{width:100%;padding:13px;background:var(--g7);color:white;border:none;border-radius:var(--r8);font-size:15px;font-weight:700;cursor:pointer;font-family:'Sora',sans-serif;transition:all .18s;margin-top:4px}
+    .sub-btn:hover{background:var(--g8);transform:translateY(-1px);box-shadow:0 4px 16px rgba(45,80,22,.3)}
+    .sub-btn:disabled{opacity:.6;cursor:not-allowed;transform:none}
 
-    .form-group  { margin-bottom:15px; }
-    .form-label  { display:block; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:var(--ink3); margin-bottom:5px; }
-    .form-ctrl   { width:100%; padding:11px 14px; border:1.5px solid var(--paper3); border-radius:var(--r8); font-size:14px; font-family:'Sora',sans-serif; color:var(--ink2); background:var(--white); transition:all .18s; }
-    .form-ctrl:focus { outline:none; border-color:var(--g7); box-shadow:0 0 0 3px rgba(45,80,22,.1); }
+    /* alert */
+    .alert{padding:12px 16px;border-radius:var(--r8);margin-bottom:16px;font-size:13px;display:none}
+    .alert-success{background:#d4edda;color:#155724;border:1px solid #c3e6cb}
+    .alert-error{background:var(--red-l);color:var(--red);border:1px solid #fca5a5}
+    .alert-info{background:#e8f4fd;color:#0c5460;border:1px solid #bee5eb}
 
-    .submit-btn  { width:100%; padding:13px; background:var(--g7); color:white; border:none; border-radius:var(--r8); font-size:15px; font-weight:700; cursor:pointer; font-family:'Sora',sans-serif; transition:all .18s; margin-top:4px; }
-    .submit-btn:hover    { background:var(--g8); transform:translateY(-1px); box-shadow:0 4px 16px rgba(45,80,22,.3); }
-    .submit-btn:disabled { opacity:.6; cursor:not-allowed; transform:none; }
+    /* oauth loading overlay */
+    .oauth-overlay{display:none;position:fixed;inset:0;background:rgba(15,26,8,.9);z-index:9999;flex-direction:column;align-items:center;justify-content:center;gap:20px}
+    .oauth-overlay.show{display:flex}
+    .o-spin{width:52px;height:52px;border:4px solid rgba(255,255,255,.2);border-top-color:var(--gold);border-radius:50%;animation:spin .8s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .o-msg{color:white;font-size:16px;font-weight:600;font-family:'Sora',sans-serif}
 
-    .alert { padding:12px 16px; border-radius:var(--r8); margin-bottom:16px; font-size:13px; display:none; }
-    .alert-success { background:#d4edda; color:#155724; border:1px solid #c3e6cb; }
-    .alert-error   { background:var(--red-l); color:var(--red); border:1px solid #fca5a5; }
-    .alert-info    { background:#e8f4fd; color:#0c5460; border:1px solid #bee5eb; }
-
-    /* OAuth loading overlay */
-    .oauth-loading {
-      display:none; position:fixed; inset:0; background:rgba(15,26,8,.85);
-      z-index:9999; flex-direction:column; align-items:center; justify-content:center; gap:20px;
-    }
-    .oauth-loading.show { display:flex; }
-    .oauth-spinner { width:52px; height:52px; border:4px solid rgba(255,255,255,.2); border-top-color:var(--gold); border-radius:50%; animation:spin .8s linear infinite; }
-    @keyframes spin { to { transform:rotate(360deg); } }
-    .oauth-loading p { color:white; font-size:16px; font-weight:600; font-family:'Sora',sans-serif; }
-
-    @media(max-width:860px) {
-      .main { grid-template-columns:1fr; }
-      .left-panel { display:none; }
-      .right-panel { padding:32px 22px; }
-    }
+    @media(max-width:860px){.main{grid-template-columns:1fr}.left{display:none}.right{padding:32px 22px}}
   </style>
 </head>
 <body>
 
-<!-- OAuth loading overlay — shown while processing ?token= from URL -->
-<div class="oauth-loading" id="oauthLoading">
-  <div class="oauth-spinner"></div>
-  <p>Signing you in with Google...</p>
+<!-- OAuth loading overlay -->
+<div class="oauth-overlay" id="oauthOverlay">
+  <div class="o-spin"></div>
+  <p class="o-msg">Signing you in with Google...</p>
 </div>
 
 <div class="topbar">
   <div class="tb-brand">
-    <span style="font-size:20px;">🍃</span>
-    <span class="tb-brand-name">AyurSutra</span>
+    <span style="font-size:20px">🍃</span>
+    <span class="tb-name">AyurSutra</span>
   </div>
-  <div class="tb-right">
-    New here? <a href="register.html">Create Account</a>
-  </div>
+  <div class="tb-right">New here? <a href="register.html">Create Account</a></div>
 </div>
 
 <div class="main">
-  <div class="left-panel">
-    <div class="lp-inner">
-      <div class="lp-eyebrow">🌿 Welcome Back</div>
-      <h1 class="lp-title">Your <span>wellness</span> journey continues</h1>
-      <p class="lp-sub">Sign in to access your health records, track vitals, and connect with Ayurvedic practitioners.</p>
-      <div class="lp-features">
-        <div class="lp-feat"><div class="lp-fi">📊</div><div class="lp-ft">Real-time health analytics and vital trends</div></div>
-        <div class="lp-feat"><div class="lp-fi">🩺</div><div class="lp-ft">Connect with certified Panchakarma specialists</div></div>
-        <div class="lp-feat"><div class="lp-fi">📱</div><div class="lp-ft">Personal QR card for instant record access</div></div>
-        <div class="lp-feat"><div class="lp-fi">📄</div><div class="lp-ft">AI-powered medical document management</div></div>
+  <div class="left">
+    <div class="li">
+      <div class="eyebrow">🌿 Welcome Back</div>
+      <h1 class="big-title">Your <span>wellness</span><br>journey continues</h1>
+      <p class="sub">Sign in to access your health records, track vitals, and connect with certified Ayurvedic practitioners.</p>
+      <div class="feats">
+        <div class="feat"><div class="feat-ic">📊</div><div class="feat-tx">Real-time health analytics and vital trends</div></div>
+        <div class="feat"><div class="feat-ic">🩺</div><div class="feat-tx">Connect with certified Panchakarma specialists</div></div>
+        <div class="feat"><div class="feat-ic">💊</div><div class="feat-tx">AI-powered prescriptions and diet plans</div></div>
+        <div class="feat"><div class="feat-ic">📱</div><div class="feat-tx">Personal QR card for instant record access</div></div>
       </div>
     </div>
   </div>
 
-  <div class="right-panel">
-    <div class="form-header">
+  <div class="right">
+    <div class="form-head">
       <h1 class="form-title">Sign In</h1>
       <p class="form-sub">Welcome back! Access your health dashboard.</p>
     </div>
 
-    <!-- Google OAuth button -->
-    <button class="oauth-btn" onclick="googleLogin()">
+    <button class="g-btn" onclick="googleLogin()">
       <svg width="18" height="18" viewBox="0 0 24 24">
         <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
         <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
@@ -147,105 +127,79 @@
     </button>
 
     <div class="divider">or sign in with email</div>
-
     <div id="alert" class="alert"></div>
 
     <form onsubmit="handleLogin(event)">
-      <div class="form-group">
-        <label class="form-label">Email *</label>
-        <input class="form-ctrl" id="em" type="email" placeholder="your@email.com" required autocomplete="email">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Password *</label>
-        <input class="form-ctrl" id="pw" type="password" placeholder="Your password" required autocomplete="current-password">
-      </div>
-      <button type="submit" class="submit-btn" id="loginBtn">Sign In →</button>
+      <div class="fg"><label class="fl">Email *</label><input class="fc" id="em" type="email" placeholder="your@email.com" required autocomplete="email"></div>
+      <div class="fg"><label class="fl">Password *</label><input class="fc" id="pw" type="password" placeholder="Your password" required autocomplete="current-password"></div>
+      <button type="submit" class="sub-btn" id="loginBtn">Sign In →</button>
     </form>
 
-    <p style="text-align:center;margin-top:20px;font-size:13px;color:var(--ink4);">
-      Don't have an account? <a href="register.html" style="color:var(--g7);font-weight:600;">Create one →</a>
+    <p style="text-align:center;margin-top:20px;font-size:13px;color:var(--ink4)">
+      Don't have an account? <a href="register.html" style="color:var(--g7);font-weight:600">Create one →</a>
     </p>
   </div>
 </div>
 
 <script>
-  // ════════════════════════════════════════════════════════
-  // STEP 1: Handle OAuth2 redirect — runs FIRST on page load
-  // OAuth2LoginSuccessHandler redirects here with:
-  //   /login.html?token=JWT&userId=1&email=...&role=PATIENT&firstName=...
-  // We extract, save to localStorage, then redirect to the right dashboard.
-  // ════════════════════════════════════════════════════════
-  (function handleOAuthRedirect() {
+  // ── STEP 1: Handle OAuth2 callback token in URL ─────────────────
+  // This runs FIRST before anything else.
+  // OAuth2LoginSuccessHandler redirects here: /login.html?token=JWT&userId=1&...
+  (function handleOAuth() {
     const params = new URLSearchParams(window.location.search);
     const token  = params.get('token');
     const error  = params.get('error');
 
-    // Show error if OAuth failed
     if (error) {
-      showAlert('Google sign-in failed: ' + error.replace(/_/g, ' '), 'error');
-      // Clean URL
+      // Clean URL and show error
       window.history.replaceState({}, '', 'login.html');
+      showAlert('Google sign-in failed. Please try again.', 'error');
       return;
     }
 
-    // Token present = OAuth2 success redirect
     if (token) {
-      document.getElementById('oauthLoading').classList.add('show');
+      // Show loading overlay immediately
+      document.getElementById('oauthOverlay').classList.add('show');
 
       const user = {
         id:        parseInt(params.get('userId') || '0'),
-        email:     params.get('email')     || '',
-        role:      params.get('role')      || 'PATIENT',
-        firstName: params.get('firstName') || '',
-        lastName:  params.get('lastName')  || '',
-        patientId: params.get('patientId') || ''
+        email:     decodeURIComponent(params.get('email')     || ''),
+        role:      decodeURIComponent(params.get('role')      || 'PATIENT'),
+        firstName: decodeURIComponent(params.get('firstName') || ''),
+        lastName:  decodeURIComponent(params.get('lastName')  || ''),
+        patientId: decodeURIComponent(params.get('patientId') || '')
       };
 
-      // Save to localStorage — same format as email/password login
       localStorage.setItem('token', token);
       localStorage.setItem('user',  JSON.stringify(user));
 
-      // Clean the token from URL immediately (security)
+      // Remove token from URL bar (security)
       window.history.replaceState({}, '', 'login.html');
 
-      // Redirect based on role
       const dest = user.role === 'DOCTOR' ? 'doctor-dashboard.html' : 'profile.html';
-      setTimeout(() => { window.location.href = dest; }, 800);
-      return;
+      setTimeout(() => { window.location.href = dest; }, 600);
     }
-
-    // If already logged in, redirect away from login page
-    const existingToken = localStorage.getItem('token');
-    const existingUser  = JSON.parse(localStorage.getItem('user') || '{}');
-    if (existingToken && existingUser.id) {
-      const dest = (existingUser.role || '').toUpperCase() === 'DOCTOR'
-        ? 'doctor-dashboard.html'
-        : 'profile.html';
-      window.location.href = dest;
-    }
+    // NOTE: We do NOT auto-redirect logged-in users here.
+    // The login page should always be accessible to let users log in as a different account.
   })();
 
-  // ════════════════════════════════════════════════════════
-  // Alert helper
-  // ════════════════════════════════════════════════════════
+  // ── Alert helper ────────────────────────────────────────────────
   function showAlert(msg, type) {
     const el = document.getElementById('alert');
-    el.textContent = msg;
-    el.className   = 'alert alert-' + type;
+    el.textContent   = msg;
+    el.className     = 'alert alert-' + type;
     el.style.display = 'block';
     if (type !== 'info') setTimeout(() => el.style.display = 'none', 6000);
   }
 
-  // ════════════════════════════════════════════════════════
-  // Email / Password Login
-  // ════════════════════════════════════════════════════════
+  // ── Email / Password login ──────────────────────────────────────
   async function handleLogin(e) {
     e.preventDefault();
     const btn   = document.getElementById('loginBtn');
     const email = document.getElementById('em').value.trim();
     const pass  = document.getElementById('pw').value;
 
-    btn.disabled    = true;
+    btn.disabled = true;
     btn.textContent = 'Signing in…';
     showAlert('Verifying credentials...', 'info');
 
@@ -258,12 +212,10 @@
       const data = await res.json();
 
       if (data.success && data.data) {
-        const auth = data.data;  // AuthResponse object from backend
-
-        // Save token and user object to localStorage
+        const auth = data.data;
         localStorage.setItem('token', auth.token);
         localStorage.setItem('user', JSON.stringify({
-          id:        auth.id        || auth.userId,
+          id:        auth.id || auth.userId,
           email:     auth.email,
           role:      auth.role,
           firstName: auth.firstName,
@@ -272,14 +224,11 @@
         }));
 
         showAlert('Welcome back, ' + (auth.firstName || 'User') + '!', 'success');
-
-        // Redirect based on role
         const role = (auth.role || '').toUpperCase();
         const dest = role === 'DOCTOR' ? 'doctor-dashboard.html'
                    : role === 'ADMIN'  ? 'admin-dashboard.html'
                    : 'profile.html';
-
-        setTimeout(() => { window.location.href = dest; }, 600);
+        setTimeout(() => { window.location.href = dest; }, 500);
       } else {
         showAlert(data.message || 'Invalid email or password', 'error');
         btn.disabled    = false;
@@ -292,9 +241,7 @@
     }
   }
 
-  // ════════════════════════════════════════════════════════
-  // Google OAuth — sends user to Spring Boot OAuth2 flow
-  // ════════════════════════════════════════════════════════
+  // ── Google OAuth ────────────────────────────────────────────────
   function googleLogin() {
     window.location.href = 'http://localhost:8080/oauth2/authorization/google';
   }

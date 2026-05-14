@@ -11,3 +11,4 @@ target/
 src/main/resources/google-vision-key.json
 uploads/
 *.class
+src/main/resources/application-local.properties
