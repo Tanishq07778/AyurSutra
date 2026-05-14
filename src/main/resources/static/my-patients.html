@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AyurSutra — My Patients</title>
+  <script src="shared.js"></script>
+</head>
+<body>
+<script>
+  injectSharedStyles();
+  Auth.requireDoctor();
+  buildNav('my-patients.html');
+</script>
+<style>
+  .hero{background:linear-gradient(135deg,var(--g9) 0%,var(--g8) 55%,#0a1f08 100%);border-radius:var(--r16);margin-bottom:26px;position:relative;overflow:hidden}
+  .hero::before{content:'';position:absolute;inset:0;opacity:.04;background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.5) 0,rgba(255,255,255,.5) 1px,transparent 0,transparent 50%);background-size:32px 32px}
+  .hero-inner{padding:26px 30px;display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap;position:relative;z-index:1}
+  .hero-left h1{font-family:'Lora',serif;font-size:22px;color:white;margin-bottom:3px}
+  .hero-left p{font-size:13px;color:rgba(255,255,255,.5)}
+  .hero-stats{display:flex;gap:14px;flex-wrap:wrap}
+  .hstat{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.1);border-radius:var(--r12);padding:12px 16px;text-align:center;min-width:76px}
+  .hstat-v{font-family:'Lora',serif;font-size:22px;font-weight:700;color:white;line-height:1}
+  .hstat-l{font-size:10px;color:rgba(255,255,255,.4);margin-top:3px;text-transform:uppercase;letter-spacing:.4px}
+  .hstat-badge{background:var(--gold);color:var(--g9);padding:1px 7px;border-radius:20px;font-size:10px;font-weight:700;display:inline-block;margin-top:3px}
+
+  /* Tabs */
+  .tabs{display:flex;border-bottom:2px solid var(--paper3);margin-bottom:22px}
+  .tab{padding:12px 22px;background:none;border:none;border-bottom:3px solid transparent;margin-bottom:-2px;font-size:13px;font-weight:600;color:var(--ink4);cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:6px}
+  .tab:hover{color:var(--g7)}.tab.active{color:var(--g7);border-bottom-color:var(--g7)}
+  .tbadge{background:var(--red-l);color:var(--red);padding:1px 7px;border-radius:20px;font-size:11px;font-weight:700}
+  .tbadge.green{background:var(--g1);color:var(--g7)}
+  .tab-pane{display:none}.tab-pane.active{display:block}
+
+  /* Search */
+  .search-bar{display:flex;gap:10px;margin-bottom:18px}
+  .search-bar input{flex:1;padding:10px 14px;border:1.5px solid var(--paper3);border-radius:var(--r8);font-size:13px;font-family:'Sora',sans-serif;color:var(--ink2);outline:none;transition:all .18s}
+  .search-bar input:focus{border-color:var(--g7);box-shadow:0 0 0 3px rgba(45,80,22,.1)}
+
+  /* Request cards */
+  .req-card{background:var(--white);border:1.5px solid var(--gold);border-radius:var(--r16);padding:18px 20px;margin-bottom:12px;display:flex;gap:14px;align-items:flex-start}
+  .rc-body{flex:1}
+  .rc-name{font-family:'Lora',serif;font-size:16px;font-weight:600;margin-bottom:4px}
+  .rc-meta{font-size:12px;color:var(--ink4);display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+  .rc-msg{background:var(--paper);border-radius:var(--r8);padding:9px 12px;font-size:13px;color:var(--ink3);margin-bottom:10px;line-height:1.5;font-style:italic}
+  .rc-actions{display:flex;gap:8px;flex-wrap:wrap}
+
+  /* Patient rows */
+  .panel{background:var(--white);border:1px solid var(--paper3);border-radius:var(--r16);overflow:hidden}
+  .pat-row{display:flex;align-items:center;gap:12px;padding:13px 18px;border-bottom:1px solid var(--paper3);cursor:pointer;transition:all .18s}
+  .pat-row:last-child{border-bottom:none}
+  .pat-row:hover{background:var(--g0)}
+  .pr-info{flex:1}
+  .pr-name{font-size:14px;font-weight:600;color:var(--ink)}
+  .pr-meta{font-size:11px;color:var(--ink4);margin-top:2px;display:flex;gap:8px;flex-wrap:wrap}
+  .pr-actions{display:flex;gap:6px}
+
+  /* Drawer */
+  .drawer-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1500}
+  .drawer-overlay.open{display:block}
+  .drawer{position:fixed;top:0;right:-540px;width:540px;max-width:100vw;height:100vh;background:var(--white);z-index:1501;overflow-y:auto;transition:right .3s cubic-bezier(.4,0,.2,1);box-shadow:-8px 0 32px rgba(0,0,0,.15)}
+  .drawer.open{right:0}
+  .dhead{position:sticky;top:0;background:var(--g9);padding:16px 20px;display:flex;align-items:center;gap:12px;z-index:10}
+  .dhead h3{font-family:'Lora',serif;color:white;font-size:17px;flex:1}
+  .dclose{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:white;width:30px;height:30px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px}
+  .dbody{padding:20px}
+  .dsec{margin-bottom:20px}
+  .dsec-title{font-family:'Lora',serif;font-size:15px;font-weight:600;color:var(--ink);border-bottom:1px solid var(--paper3);padding-bottom:8px;margin-bottom:12px}
+  .vgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .vc{background:var(--paper);border-radius:var(--r8);padding:11px;text-align:center}
+  .vc-v{font-family:'Lora',serif;font-size:17px;font-weight:700;color:var(--ink)}
+  .vc-l{font-size:10px;color:var(--ink4);margin-top:2px;text-transform:uppercase;letter-spacing:.3px}
+  .rep-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--paper3)}
+  .rep-row:last-child{border-bottom:none}
+  .rep-ic{width:34px;height:34px;border-radius:8px;background:var(--paper);display:flex;align-items:center;justify-content:center;font-size:16px}
+
+  @media(max-width:600px){.hero-inner{flex-direction:column;align-items:flex-start}.req-card{flex-direction:column}.drawer{width:100vw}}
+</style>
+
+<div class="page-wrap">
+  <div class="hero">
+    <div class="hero-inner">
+      <div class="hero-left">
+        <h1 id="heroGreet">My Patients</h1>
+        <p>Manage patient connections and create treatment plans</p>
+      </div>
+      <div class="hero-stats">
+        <div class="hstat"><div class="hstat-v" id="stConn">—</div><div class="hstat-l">Connected</div></div>
+        <div class="hstat">
+          <div class="hstat-v" id="stPend">—</div>
+          <div class="hstat-l">Pending</div>
+          <div id="newBadge" style="display:none" class="hstat-badge">New!</div>
+        </div>
+        <div class="hstat"><div class="hstat-v" id="stTotal">—</div><div class="hstat-l">Total</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('connected',this)">
+      👥 My Patients <span class="tbadge green" id="connBadge">0</span>
+    </button>
+    <button class="tab" onclick="switchTab('pending',this)">
+      📬 Requests <span class="tbadge" id="pendBadge">0</span>
+    </button>
+  </div>
+
+  <div class="tab-pane active" id="tab-connected">
+    <div class="search-bar">
+      <input type="text" id="patSearch" placeholder="Search by name or ID..." oninput="filterPatients()">
+      <button class="btn btn-primary btn-sm" onclick="window.location.href='treatment-plans.html'">➕ New Plan</button>
+    </div>
+    <div class="panel" id="connectedList">
+      <div class="s-box" style="padding:40px"><div class="s-spin"></div><p>Loading patients...</p></div>
+    </div>
+  </div>
+
+  <div class="tab-pane" id="tab-pending">
+    <div id="pendingList">
+      <div class="s-box" style="padding:40px"><div class="s-spin"></div><p>Loading requests...</p></div>
+    </div>
+  </div>
+</div>
+
+<!-- Patient Drawer -->
+<div class="drawer-overlay" id="drawerOverlay" onclick="closeDrawer()"></div>
+<div class="drawer" id="patDrawer">
+  <div class="dhead">
+    <div class="avatar avatar-sm" id="dAv" style="background:var(--g7)">?</div>
+    <h3 id="dName">Loading...</h3>
+    <a id="dFullLink" href="#" class="btn btn-gold btn-sm" style="flex-shrink:0">Full Profile →</a>
+    <button class="dclose" onclick="closeDrawer()">✕</button>
+  </div>
+  <div class="dbody" id="dBody"><div class="s-box"><div class="s-spin"></div></div></div>
+</div>
+
+<script>
+  const u = Auth.user();
+  let allConn=[], allPend=[];
+
+  document.addEventListener('DOMContentLoaded', async()=>{
+    const h=new Date().getHours();
+    document.getElementById('heroGreet').textContent =
+      `${h<12?'Good morning':h<17?'Good afternoon':'Good evening'}, Dr. ${u.firstName||''}`;
+    await loadAll();
+  });
+
+  async function loadAll(){
+    try{
+      const res  = await apiFetch(`/connections/doctor/${u.id}`);
+      const list = Array.isArray(res)?res:(res.data||[]);
+      allConn = list.filter(c=>c.status==='CONNECTED');
+      allPend = list.filter(c=>c.status==='PENDING');
+      document.getElementById('stConn').textContent  = allConn.length;
+      document.getElementById('stPend').textContent  = allPend.length;
+      document.getElementById('stTotal').textContent = list.length;
+      document.getElementById('connBadge').textContent = allConn.length;
+      document.getElementById('pendBadge').textContent = allPend.length;
+      if(allPend.length) document.getElementById('newBadge').style.display='inline-block';
+      renderConnected(allConn);
+      renderPending(allPend);
+    }catch(e){ document.getElementById('connectedList').innerHTML=errorHTML('Could not load patients'); }
+  }
+
+  function switchTab(name,btn){
+    document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
+    document.getElementById('tab-'+name).classList.add('active');
+  }
+
+  function filterPatients(){
+    const q=document.getElementById('patSearch').value.toLowerCase();
+    renderConnected(allConn.filter(c=>{
+      const p=c.patient||{};
+      return(`${p.firstName} ${p.lastName}`).toLowerCase().includes(q)||(p.patientId||'').toLowerCase().includes(q);
+    }));
+  }
+
+  function renderConnected(list){
+    const el=document.getElementById('connectedList');
+    if(!list.length){ el.innerHTML=`<div style="padding:16px">${emptyHTML('👥','No connected patients', allConn.length?'No results':'Patients appear here once you accept their requests')}</div>`; return; }
+    el.innerHTML=list.map(c=>{
+      const p=c.patient||{};
+      const bg=getAvatarColor((p.firstName||'')+(p.lastName||''));
+      const init=getInitials(p.firstName,p.lastName);
+      const patId=p.patientId||('AYR-PAT-'+String(p.id||'').padStart(6,'0'));
+      const age=p.dateOfBirth?new Date().getFullYear()-new Date(p.dateOfBirth).getFullYear():null;
+      const since=c.connectedAt?fmtDate(c.connectedAt):'—';
+      return `<div class="pat-row" onclick="openDrawer(${p.id},${c.id})">
+        <div class="avatar avatar-md" style="background:${bg}">${init}</div>
+        <div class="pr-info">
+          <div class="pr-name">${p.firstName||'—'} ${p.lastName||''}</div>
+          <div class="pr-meta">
+            <span>${patId}</span>
+            ${age?`<span>• ${age} yrs</span>`:''}
+            ${p.bloodGroup?`<span>• 🩸 ${p.bloodGroup}</span>`:''}
+            ${p.doshaType?`<span>• ${p.doshaType.replace('_','-')}</span>`:''}
+            <span>• Since ${since}</span>
+          </div>
+        </div>
+        <div class="pr-actions">
+          <button class="btn btn-primary btn-sm" onclick="event.stopPropagation();openDrawer(${p.id},${c.id})">View Records</button>
+          <a href="treatment-plans.html?patientId=${p.id}" class="btn btn-secondary btn-sm" onclick="event.stopPropagation()">+ Plan</a>
+          <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();doDisconn(${c.id},'${p.firstName} ${p.lastName}')">✕</button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function renderPending(list){
+    const el=document.getElementById('pendingList');
+    if(!list.length){ el.innerHTML=`<div style="margin-top:8px">${emptyHTML('📬','No pending requests','New requests will appear here')}</div>`; return; }
+    el.innerHTML=list.map(c=>{
+      const p=c.patient||{};
+      const bg=getAvatarColor((p.firstName||'')+(p.lastName||''));
+      const init=getInitials(p.firstName,p.lastName);
+      const patId=p.patientId||('AYR-PAT-'+String(p.id||'').padStart(6,'0'));
+      const age=p.dateOfBirth?new Date().getFullYear()-new Date(p.dateOfBirth).getFullYear():null;
+      const when=c.requestedAt?timeAgo(c.requestedAt):'—';
+      return `<div class="req-card" id="req-${c.id}">
+        <div class="avatar avatar-lg" style="background:${bg};flex-shrink:0">${init}</div>
+        <div class="rc-body">
+          <div class="rc-name">${p.firstName||'—'} ${p.lastName||''}</div>
+          <div class="rc-meta">
+            <span>${patId}</span>
+            ${age?`<span>• ${age} yrs</span>`:''}
+            ${p.bloodGroup?`<span>• 🩸 ${p.bloodGroup}</span>`:''}
+            ${p.doshaType?`<span>• 🌀 ${p.doshaType.replace('_','-')}</span>`:''}
+            <span>• Sent ${when}</span>
+          </div>
+          ${c.requestMessage?`<div class="rc-msg">${c.requestMessage}"</div>`:''}
+          <div class="rc-actions">
+            <button class="btn btn-primary btn-sm" onclick="acceptReq(${c.id})">✓ Accept</button>
+            <button class="btn btn-secondary btn-sm" onclick="rejectReq(${c.id})">✕ Decline</button>
+            <button class="btn btn-secondary btn-sm" onclick="openDrawer(${p.id},${c.id})">👁 Preview</button>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  async function acceptReq(id){
+    const res=await apiFetch(`/connections/${id}/accept`,{method:'PUT',body:JSON.stringify({doctorId:u.id})});
+    if(res.success){Toast.success('Patient added to your list!');document.getElementById(`req-${id}`)?.remove();await loadAll();}
+    else Toast.error(res.message||'Failed');
+  }
+
+  async function rejectReq(id){
+    if(!confirm('Decline this request?'))return;
+    const res=await apiFetch(`/connections/${id}/reject`,{method:'PUT',body:JSON.stringify({doctorId:u.id})});
+    if(res.success){Toast.info('Request declined.');document.getElementById(`req-${id}`)?.remove();await loadAll();}
+    else Toast.error(res.message||'Failed');
+  }
+
+  async function doDisconn(id,name){
+    if(!confirm(`Disconnect from ${name}?`))return;
+    const res=await apiFetch(`/connections/${id}`,{method:'DELETE'});
+    if(res.success){Toast.success(`Disconnected from ${name}`);await loadAll();}
+    else Toast.error(res.message||'Failed');
+  }
+
+  // ── Patient Drawer ────────────────────────────────────────────
+  async function openDrawer(patientId,connId){
+    document.getElementById('drawerOverlay').classList.add('open');
+    document.getElementById('patDrawer').classList.add('open');
+    document.getElementById('dName').textContent='Loading...';
+    document.getElementById('dFullLink').href=`patient-profile-doctor.html?id=${patientId}`;
+    document.getElementById('dBody').innerHTML='<div class="s-box"><div class="s-spin"></div></div>';
+
+    try{
+      const [pR,vR,rR,tR]=await Promise.allSettled([
+        apiFetch(`/patients/profile/${patientId}`),
+        apiFetch(`/vitals/${patientId}`),
+        apiFetch(`/reports/${patientId}`),
+        apiFetch(`/treatment-plans/doctor/${u.id}/patient/${patientId}`)
+      ]);
+      const p   = pR.status==='fulfilled'?(pR.value.data||pR.value):{};
+      const vits= vR.status==='fulfilled'?(Array.isArray(vR.value)?vR.value:(vR.value.data||[])):[];
+      const reps= rR.status==='fulfilled'?(Array.isArray(rR.value)?rR.value:(rR.value.data||[])):[];
+      const plans=tR.status==='fulfilled'?(Array.isArray(tR.value)?tR.value:(tR.value.data||[])):[];
+
+      const init=getInitials(p.firstName,p.lastName);
+      const bg=getAvatarColor((p.firstName||'')+(p.lastName||''));
+      document.getElementById('dAv').textContent=init;
+      document.getElementById('dAv').style.background=bg;
+      document.getElementById('dName').textContent=`${p.firstName||'Patient'} ${p.lastName||''}`;
+
+      const latest=vits[0]||null;
+      const patId=p.patientId||('AYR-PAT-'+String(patientId).padStart(6,'0'));
+      const bmi=(p.heightCm&&p.weightKg)?(p.weightKg/Math.pow(p.heightCm/100,2)).toFixed(1):'—';
+      const age=p.dateOfBirth?new Date().getFullYear()-new Date(p.dateOfBirth).getFullYear():'—';
+      const repIc={LAB_REPORT:'📋',RADIOLOGY:'🩺',PRESCRIPTION:'💊',DISCHARGE_SUMMARY:'📄',CONSULTATION_NOTES:'📝',OTHER:'📁'};
+
+      document.getElementById('dBody').innerHTML=`
+        <div class="dsec">
+          <div class="dsec-title">Overview</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:0">
+            ${[['ID',patId],['Age',age+' yrs'],['Gender',p.gender||'—'],['Blood Group',p.bloodGroup||'—'],['Dosha',p.doshaType?p.doshaType.replace('_','-'):'—'],['BMI',bmi]].map(([k,v])=>`
+            <div style="padding:8px 0;border-bottom:1px solid var(--paper3);font-size:13px">
+              <div style="color:var(--ink4);font-size:10px;text-transform:uppercase;letter-spacing:.3px;margin-bottom:2px">${k}</div>
+              <div style="font-weight:600">${v}</div>
+            </div>`).join('')}
+          </div>
+          ${p.allergies?.length?`<div style="margin-top:8px;font-size:12px;color:var(--ink4)">⚠️ Allergies: ${p.allergies.join(', ')}</div>`:''}
+        </div>
+
+        <div class="dsec">
+          <div class="dsec-title">Latest Vitals ${latest?`<span style="font-size:11px;color:var(--ink4);font-weight:400;font-family:'Sora',sans-serif">• ${fmtDate(latest.recordedAt)}</span>`:''}</div>
+          ${latest?`<div class="vgrid">
+            <div class="vc"><div class="vc-v">${latest.systolicBP&&latest.diastolicBP?`${latest.systolicBP}/${latest.diastolicBP}`:'—'}</div><div class="vc-l">BP</div></div>
+            <div class="vc"><div class="vc-v">${latest.heartRate||'—'}</div><div class="vc-l">HR</div></div>
+            <div class="vc"><div class="vc-v">${latest.temperature?Number(latest.temperature).toFixed(1):'—'}</div><div class="vc-l">Temp</div></div>
+            <div class="vc"><div class="vc-v">${latest.weight?Number(latest.weight).toFixed(1):'—'}</div><div class="vc-l">Weight</div></div>
+            <div class="vc"><div class="vc-v">${latest.oxygenSaturation||'—'}</div><div class="vc-l">SpO₂</div></div>
+            <div class="vc"><div class="vc-v">${latest.bloodSugar||'—'}</div><div class="vc-l">Sugar</div></div>
+          </div><div style="margin-top:6px;font-size:11px;color:var(--ink4)">${vits.length} total readings</div>`
+          :emptyHTML('📊','No vitals recorded yet','')}
+        </div>
+
+        <div class="dsec">
+          <div class="dsec-title">Reports (${reps.length})</div>
+          ${reps.length?reps.slice(0,4).map(r=>`<div class="rep-row"><div class="rep-ic">${repIc[r.reportType]||'📄'}</div><div style="flex:1"><div style="font-size:13px;font-weight:600">${r.title||'Report'}</div><div style="font-size:11px;color:var(--ink4)">${fmtDate(r.reportDate||r.uploadedAt)}</div></div><span class="badge badge-blue" style="font-size:10px">${(r.reportType||'').replace(/_/g,' ')}</span></div>`).join('')
+          :emptyHTML('📋','No reports yet','')}
+        </div>
+
+        <div class="dsec">
+          <div class="dsec-title">Treatment Plans (${plans.length})</div>
+          ${plans.length?plans.slice(0,3).map(pl=>`<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--paper3)">
+            <span style="font-size:18px">📋</span>
+            <div style="flex:1"><div style="font-size:13px;font-weight:600">${pl.title||'Treatment Plan'}</div><div style="font-size:11px;color:var(--ink4)">${pl.status||'ACTIVE'} • ${fmtDate(pl.createdAt)}</div></div>
+            <a href="treatment-plans.html?planId=${pl.id}" class="btn btn-secondary btn-sm">View</a>
+          </div>`).join('')
+          :`<div style="text-align:center;padding:12px 0"><a href="treatment-plans.html?patientId=${patientId}" class="btn btn-primary btn-sm">➕ Create First Plan</a></div>`}
+        </div>
+
+        <div style="display:flex;gap:8px;margin-top:4px">
+          <a href="treatment-plans.html?patientId=${patientId}" class="btn btn-primary btn-full">📋 Create Treatment Plan</a>
+          <a href="patient-profile-doctor.html?id=${patientId}" class="btn btn-secondary btn-full">Full Profile →</a>
+        </div>`;
+    }catch(e){ document.getElementById('dBody').innerHTML=errorHTML('Could not load patient data'); }
+  }
+
+  function closeDrawer(){
+    document.getElementById('drawerOverlay').classList.remove('open');
+    document.getElementById('patDrawer').classList.remove('open');
+  }
+</script>
+</body>
+</html>
