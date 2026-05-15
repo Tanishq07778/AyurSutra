@@ -17,15 +17,11 @@
     }
     html,body{height:100%;font-family:'Sora',sans-serif;background:var(--paper)}
     body{display:flex;flex-direction:column;min-height:100vh}
-
-    /* topbar */
     .topbar{height:54px;background:var(--g9);display:flex;align-items:center;padding:0 28px;border-bottom:1px solid rgba(255,255,255,.06);flex-shrink:0}
     .tb-brand{display:flex;align-items:center;gap:9px}
     .tb-name{font-family:'Lora',serif;font-size:17px;font-weight:600;color:white}
     .tb-right{margin-left:auto;font-size:13px;color:rgba(255,255,255,.45)}
     .tb-right a{color:rgba(255,255,255,.7);text-decoration:none;font-weight:600;margin-left:6px}
-
-    /* layout */
     .main{flex:1;display:grid;grid-template-columns:1fr 480px}
     .left{background:linear-gradient(160deg,var(--g8) 0%,var(--g9) 60%,#071204 100%);padding:60px 56px;display:flex;flex-direction:column;justify-content:center;position:relative;overflow:hidden}
     .left::before{content:'';position:absolute;inset:0;opacity:.04;background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.5) 0,rgba(255,255,255,.5) 1px,transparent 0,transparent 50%);background-size:36px 36px}
@@ -38,53 +34,39 @@
     .feat{display:flex;align-items:center;gap:14px}
     .feat-ic{width:38px;height:38px;border-radius:10px;background:rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
     .feat-tx{font-size:13px;color:rgba(255,255,255,.65)}
-
-    /* right panel */
     .right{background:var(--white);padding:50px 44px;display:flex;flex-direction:column;justify-content:center;overflow-y:auto}
     .form-head{margin-bottom:28px}
     .form-title{font-family:'Lora',serif;font-size:28px;font-weight:600;color:var(--ink);margin-bottom:4px}
     .form-sub{font-size:13px;color:var(--ink4)}
-
-    /* google btn */
     .g-btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:12px;border:1.5px solid var(--paper3);border-radius:var(--r8);background:var(--white);cursor:pointer;font-size:14px;font-weight:600;color:var(--ink2);font-family:'Sora',sans-serif;transition:all .18s;margin-bottom:20px}
     .g-btn:hover{border-color:var(--g7);background:var(--g0)}
-
-    /* divider */
+    .g-btn:disabled{opacity:.6;cursor:not-allowed}
     .divider{display:flex;align-items:center;gap:12px;margin:0 0 20px;color:var(--ink4);font-size:13px}
     .divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--paper3)}
-
-    /* form */
     .fg{margin-bottom:15px}
     .fl{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--ink3);margin-bottom:5px}
     .fc{width:100%;padding:11px 14px;border:1.5px solid var(--paper3);border-radius:var(--r8);font-size:14px;font-family:'Sora',sans-serif;color:var(--ink2);background:var(--white);transition:all .18s}
     .fc:focus{outline:none;border-color:var(--g7);box-shadow:0 0 0 3px rgba(45,80,22,.1)}
-
     .sub-btn{width:100%;padding:13px;background:var(--g7);color:white;border:none;border-radius:var(--r8);font-size:15px;font-weight:700;cursor:pointer;font-family:'Sora',sans-serif;transition:all .18s;margin-top:4px}
     .sub-btn:hover{background:var(--g8);transform:translateY(-1px);box-shadow:0 4px 16px rgba(45,80,22,.3)}
     .sub-btn:disabled{opacity:.6;cursor:not-allowed;transform:none}
-
-    /* alert */
     .alert{padding:12px 16px;border-radius:var(--r8);margin-bottom:16px;font-size:13px;display:none}
     .alert-success{background:#d4edda;color:#155724;border:1px solid #c3e6cb}
     .alert-error{background:var(--red-l);color:var(--red);border:1px solid #fca5a5}
     .alert-info{background:#e8f4fd;color:#0c5460;border:1px solid #bee5eb}
-
-    /* oauth loading overlay */
     .oauth-overlay{display:none;position:fixed;inset:0;background:rgba(15,26,8,.9);z-index:9999;flex-direction:column;align-items:center;justify-content:center;gap:20px}
     .oauth-overlay.show{display:flex}
     .o-spin{width:52px;height:52px;border:4px solid rgba(255,255,255,.2);border-top-color:var(--gold);border-radius:50%;animation:spin .8s linear infinite}
     @keyframes spin{to{transform:rotate(360deg)}}
     .o-msg{color:white;font-size:16px;font-weight:600;font-family:'Sora',sans-serif}
-
     @media(max-width:860px){.main{grid-template-columns:1fr}.left{display:none}.right{padding:32px 22px}}
   </style>
 </head>
 <body>
 
-<!-- OAuth loading overlay -->
 <div class="oauth-overlay" id="oauthOverlay">
   <div class="o-spin"></div>
-  <p class="o-msg">Signing you in with Google...</p>
+  <p class="o-msg" id="oauthMsg">Signing you in...</p>
 </div>
 
 <div class="topbar">
@@ -116,7 +98,7 @@
       <p class="form-sub">Welcome back! Access your health dashboard.</p>
     </div>
 
-    <button class="g-btn" onclick="googleLogin()">
+    <button class="g-btn" id="googleBtn" onclick="googleLogin()">
       <svg width="18" height="18" viewBox="0 0 24 24">
         <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
         <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
@@ -142,25 +124,32 @@
 </div>
 
 <script>
-  // ── STEP 1: Handle OAuth2 callback token in URL ─────────────────
-  // This runs FIRST before anything else.
-  // OAuth2LoginSuccessHandler redirects here: /login.html?token=JWT&userId=1&...
-  (function handleOAuth() {
+  // ─────────────────────────────────────────────────────────────────────────
+  // CONFIG — change this if your server runs on a different port
+  // ─────────────────────────────────────────────────────────────────────────
+  const SERVER = 'http://localhost:8080';
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // STEP 1: Handle Google OAuth2 callback (token arrives in URL params)
+  // OAuth2LoginSuccessHandler redirects to: /login.html?token=JWT&userId=1&...
+  // This MUST run before anything else — hence the IIFE.
+  // ─────────────────────────────────────────────────────────────────────────
+  (function handleOAuthCallback() {
     const params = new URLSearchParams(window.location.search);
     const token  = params.get('token');
     const error  = params.get('error');
 
     if (error) {
-      // Clean URL and show error
-      window.history.replaceState({}, '', 'login.html');
-      showAlert('Google sign-in failed. Please try again.', 'error');
+      window.history.replaceState({}, '', '/login.html');
+      showAlert('Google sign-in failed: ' + error + '. Try email/password instead.', 'error');
       return;
     }
 
     if (token) {
-      // Show loading overlay immediately
       document.getElementById('oauthOverlay').classList.add('show');
+      document.getElementById('oauthMsg').textContent = 'Signing you in with Google...';
 
+      // Build user object from URL params (populated by OAuth2LoginSuccessHandler)
       const user = {
         id:        parseInt(params.get('userId') || '0'),
         email:     decodeURIComponent(params.get('email')     || ''),
@@ -170,80 +159,167 @@
         patientId: decodeURIComponent(params.get('patientId') || '')
       };
 
+      if (!user.id || user.id === 0) {
+        // id missing — can't proceed safely
+        window.history.replaceState({}, '', '/login.html');
+        document.getElementById('oauthOverlay').classList.remove('show');
+        showAlert('Google sign-in error: missing user ID. Please try again.', 'error');
+        return;
+      }
+
       localStorage.setItem('token', token);
       localStorage.setItem('user',  JSON.stringify(user));
 
-      // Remove token from URL bar (security)
-      window.history.replaceState({}, '', 'login.html');
+      // Remove token from URL (security — don't leave JWT in browser history)
+      window.history.replaceState({}, '', '/login.html');
 
-      const dest = user.role === 'DOCTOR' ? 'doctor-dashboard.html' : 'profile.html';
-      setTimeout(() => { window.location.href = dest; }, 600);
+      // Redirect to the right dashboard
+      redirectAfterLogin(user.role);
     }
-    // NOTE: We do NOT auto-redirect logged-in users here.
-    // The login page should always be accessible to let users log in as a different account.
   })();
 
-  // ── Alert helper ────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────
+  // Alert helper
+  // ─────────────────────────────────────────────────────────────────────────
   function showAlert(msg, type) {
     const el = document.getElementById('alert');
     el.textContent   = msg;
     el.className     = 'alert alert-' + type;
     el.style.display = 'block';
-    if (type !== 'info') setTimeout(() => el.style.display = 'none', 6000);
+    if (type !== 'info') setTimeout(() => el.style.display = 'none', 7000);
   }
 
-  // ── Email / Password login ──────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────
+  // Redirect helper — uses ABSOLUTE paths to avoid Spring Security interception
+  // ─────────────────────────────────────────────────────────────────────────
+  function redirectAfterLogin(role) {
+    const r = (role || '').toUpperCase();
+    let dest;
+    if (r === 'DOCTOR') dest = '/doctor-dashboard.html';
+    else if (r === 'ADMIN') dest = '/dashboard.html';
+    else dest = '/profile.html';
+
+    // Use replace so login page isn't in back-history
+    window.location.replace(dest);
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Email / Password login
+  //
+  // FIX: AuthService returns:
+  //   { success: true, data: { token, refreshToken, user: { id, email, role... } } }
+  //
+  // OLD BUG: code read auth.id, auth.email etc directly from data.data
+  //          but data.data IS the AuthResponse which has a nested .user object
+  //          So auth.id was always undefined → Auth.isLoggedIn() = false → loop
+  //
+  // FIX: read from auth.user (the nested UserResponse)
+  // ─────────────────────────────────────────────────────────────────────────
   async function handleLogin(e) {
     e.preventDefault();
     const btn   = document.getElementById('loginBtn');
     const email = document.getElementById('em').value.trim();
     const pass  = document.getElementById('pw').value;
 
-    btn.disabled = true;
+    btn.disabled    = true;
     btn.textContent = 'Signing in…';
     showAlert('Verifying credentials...', 'info');
 
     try {
-      const res  = await fetch('http://localhost:8080/api/v1/auth/login', {
-        method: 'POST',
+      const res  = await fetch(SERVER + '/api/v1/auth/login', {
+        method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password: pass })
+        body:    JSON.stringify({ email, password: pass })
       });
-      const data = await res.json();
+
+      // Handle non-JSON or empty responses gracefully
+      let data;
+      try { data = await res.json(); }
+      catch(e) {
+        showAlert('Server returned an unexpected response. Is Spring Boot running?', 'error');
+        btn.disabled = false; btn.textContent = 'Sign In →';
+        return;
+      }
 
       if (data.success && data.data) {
-        const auth = data.data;
-        localStorage.setItem('token', auth.token);
+        const authResponse = data.data;           // AuthResponse object
+        const userInfo     = authResponse.user;   // ← FIX: nested UserResponse
+
+        if (!userInfo || !userInfo.id) {
+          showAlert('Login error: invalid server response (missing user data). Contact support.', 'error');
+          btn.disabled = false; btn.textContent = 'Sign In →';
+          return;
+        }
+
+        // Save token and full user object to localStorage
+        localStorage.setItem('token', authResponse.token);
         localStorage.setItem('user', JSON.stringify({
-          id:        auth.id || auth.userId,
-          email:     auth.email,
-          role:      auth.role,
-          firstName: auth.firstName,
-          lastName:  auth.lastName,
-          patientId: auth.patientId || ''
+          id:        userInfo.id,
+          email:     userInfo.email,
+          role:      userInfo.role,
+          firstName: userInfo.firstName,
+          lastName:  userInfo.lastName,
+          patientId: userInfo.patientId || '',
+          doctorId:  userInfo.doctorId  || ''
         }));
 
-        showAlert('Welcome back, ' + (auth.firstName || 'User') + '!', 'success');
-        const role = (auth.role || '').toUpperCase();
-        const dest = role === 'DOCTOR' ? 'doctor-dashboard.html'
-                   : role === 'ADMIN'  ? 'admin-dashboard.html'
-                   : 'profile.html';
-        setTimeout(() => { window.location.href = dest; }, 500);
+        showAlert('Welcome back, ' + (userInfo.firstName || 'User') + '! Redirecting...', 'success');
+
+        // Show overlay while navigating (prevents seeing the login page flash)
+        document.getElementById('oauthOverlay').classList.add('show');
+        document.getElementById('oauthMsg').textContent =
+          'Welcome back, ' + (userInfo.firstName || 'User') + '!';
+
+        // Small delay so the user sees the welcome, then hard redirect
+        setTimeout(() => redirectAfterLogin(userInfo.role), 600);
+
       } else {
-        showAlert(data.message || 'Invalid email or password', 'error');
+        // Server returned success:false — show the server's message
+        showAlert(data.message || 'Invalid email or password. Please try again.', 'error');
         btn.disabled    = false;
         btn.textContent = 'Sign In →';
       }
+
     } catch (err) {
-      showAlert('Cannot connect to server. Is Spring Boot running on port 8080?', 'error');
+      // Network error — server probably not running
+      showAlert('Cannot reach server at ' + SERVER + '. Is Spring Boot running on port 8080?', 'error');
       btn.disabled    = false;
       btn.textContent = 'Sign In →';
     }
   }
 
-  // ── Google OAuth ────────────────────────────────────────────────
-  function googleLogin() {
-    window.location.href = 'http://localhost:8080/oauth2/authorization/google';
+  // ─────────────────────────────────────────────────────────────────────────
+  // Google OAuth — starts the OAuth2 flow
+  // ─────────────────────────────────────────────────────────────────────────
+  async function googleLogin() {
+    const btn = document.getElementById('googleBtn');
+
+    // First check if Google OAuth is configured on the server
+    try {
+      btn.disabled    = true;
+      btn.textContent = 'Checking...';
+
+      // Try a lightweight ping to see if oauth is available
+      const testRes = await fetch(SERVER + '/oauth2/authorization/google', {
+        method: 'HEAD', redirect: 'manual'
+      }).catch(() => null);
+
+      // If server is reachable, proceed
+      btn.disabled = false;
+      btn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24">
+        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+      </svg> Continue with Google`;
+
+      window.location.href = SERVER + '/oauth2/authorization/google';
+
+    } catch(err) {
+      btn.disabled = false;
+      btn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24">...</svg> Continue with Google`;
+      showAlert('Could not connect to server for Google login. Make sure Spring Boot is running.', 'error');
+    }
   }
 </script>
 </body>
