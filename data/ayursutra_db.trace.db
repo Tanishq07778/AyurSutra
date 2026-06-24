@@ -147,3 +147,6 @@ Caused by: org.h2.mvstore.MVStoreException: The file is locked: C:/Users/Lenovo/
 	at org.h2.mvstore.SingleFileStore.open(SingleFileStore.java:81)
 	at org.h2.mvstore.MVStore.<init>(MVStore.java:286)
 	... 54 more
+2026-05-15 15:46:57.696269+05:30 jdbc[4]: exception
+org.h2.jdbc.JdbcSQLDataException: Value too long for column "PROFILE_PICTURE_URL CHARACTER VARYING(255)": "'https://lh3.googleusercontent.com/a-/ALV-UjVtTKi50yGtx6Sux9CWsk4UVxBOnduO4wz3A5... (1127)"; SQL statement:
+update users set email=?,email_verified=?,first_name=?,google_id=?,last_name=?,password=?,phone=?,profile_picture_url=?,role=?,status=?,updated_at=? where id=? [22001-232]

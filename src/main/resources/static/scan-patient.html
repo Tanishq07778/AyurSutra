@@ -3,10 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AyurSutra — Scan Patient QR</title>
+  <title>AyurSutra — Scan Patient</title>
   <script src="shared.js"></script>
-  <!-- jsQR for QR decoding from camera -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
+  <!-- ZXing QR scanner library -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/zxing-js/0.20.0/index.min.js"
+          integrity="sha512-7mBCLWgDLx6p6qdpqjzDJ1HJr/E+0+Ym5yl+Lkqx/OAdBdV3bIERAYmN/B88LjgaFXmSLVQbMVUmpIJO4a+A=="
+          crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <!-- QRCode generator (for future display) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
 <body>
 <script>
@@ -14,350 +18,943 @@
   Auth.requireDoctor();
   buildNav('scan-patient.html');
 </script>
-
 <style>
-  .scan-layout {
-    max-width: 720px; margin: 40px auto; padding: 0 20px;
-    display: flex; flex-direction: column; gap: 24px;
-  }
-  .page-heading { text-align:center; margin-bottom:8px; }
-  .page-heading h1 { font-size:32px; }
-  .page-heading p  { color:var(--text-300); margin-top:6px; }
+  /* ── Page layout ──────────────────────────────────────────────── */
+  .scan-wrap { max-width:900px; margin:0 auto; padding:28px 20px; }
 
+  /* ── Scanner card ─────────────────────────────────────────────── */
   .scan-card {
-    background: var(--white); border:1px solid var(--border);
-    border-radius: var(--radius-lg); overflow: hidden;
+    background:var(--white); border:1px solid var(--paper3);
+    border-radius:var(--r16); padding:28px; margin-bottom:22px;
   }
-  .scan-tabs { display:flex; border-bottom:1px solid var(--border); }
-  .scan-tab {
-    flex:1; padding:14px; text-align:center; cursor:pointer;
-    font-size:14px; font-weight:600; color:var(--text-300);
-    background:none; border:none; border-bottom:2px solid transparent;
-    transition:all 0.2s;
+  .scan-card-title {
+    font-family:'Lora',serif; font-size:20px; font-weight:600;
+    color:var(--ink); margin-bottom:18px; display:flex; align-items:center; gap:10px;
   }
-  .scan-tab.active { color:var(--green-700); border-bottom-color:var(--green-700); background:var(--green-50); }
 
-  /* Camera scanner */
-  .camera-wrap {
-    padding: 24px; display:flex; flex-direction:column; align-items:center; gap:20px;
+  /* QR view area */
+  .qr-area {
+    position:relative; background:#000; border-radius:var(--r12);
+    overflow:hidden; aspect-ratio:4/3; max-height:320px;
+    display:flex; align-items:center; justify-content:center;
   }
-  .video-frame {
-    width: 100%; max-width: 380px; aspect-ratio:1;
-    border-radius: var(--radius-md); overflow:hidden;
-    background: #111; position:relative;
-    border: 3px solid var(--green-700);
+  #qrVideo { width:100%; height:100%; object-fit:cover; display:none; }
+  .qr-placeholder {
+    display:flex; flex-direction:column; align-items:center; gap:12px;
+    color:rgba(255,255,255,.5); text-align:center; padding:20px;
   }
-  .video-frame video { width:100%; height:100%; object-fit:cover; display:block; }
-  .video-frame canvas { display:none; }
-  .scan-corners {
-    position:absolute; inset:12px; pointer-events:none;
+  .qr-placeholder .qr-icon { font-size:52px; opacity:.4; }
+
+  /* Corner markers */
+  .qr-corners { position:absolute; inset:0; pointer-events:none; }
+  .qr-corners span {
+    position:absolute; width:32px; height:32px;
+    border-color:var(--gold); border-style:solid; border-width:0;
   }
-  .scan-corners::before, .scan-corners::after,
-  .scan-corners span::before, .scan-corners span::after {
-    content:''; position:absolute; width:20px; height:20px;
-    border-color: var(--gold); border-style:solid;
-  }
-  .scan-corners::before { top:0; left:0; border-width:3px 0 0 3px; }
-  .scan-corners::after  { top:0; right:0; border-width:3px 3px 0 0; }
-  .scan-corners span::before { bottom:0; left:0; border-width:0 0 3px 3px; }
-  .scan-corners span::after  { bottom:0; right:0; border-width:0 3px 3px 0; }
+  .qr-corners span:nth-child(1){top:14px;left:14px;border-top-width:3px;border-left-width:3px;border-radius:4px 0 0 0;}
+  .qr-corners span:nth-child(2){top:14px;right:14px;border-top-width:3px;border-right-width:3px;border-radius:0 4px 0 0;}
+  .qr-corners span:nth-child(3){bottom:14px;left:14px;border-bottom-width:3px;border-left-width:3px;border-radius:0 0 0 4px;}
+  .qr-corners span:nth-child(4){bottom:14px;right:14px;border-bottom-width:3px;border-right-width:3px;border-radius:0 0 4px 0;}
   .scan-line {
-    position:absolute; left:12px; right:12px; height:2px;
-    background:linear-gradient(90deg, transparent, var(--gold), transparent);
-    animation: scanMove 2s linear infinite;
+    display:none; position:absolute; left:16px; right:16px; height:2px;
+    background:linear-gradient(90deg,transparent,var(--gold),transparent);
+    animation:scanAnim 2s ease-in-out infinite;
   }
-  @keyframes scanMove { 0%{top:12px} 100%{top:calc(100% - 14px)} }
-  .scan-status { font-size:14px; color:var(--text-300); text-align:center; }
-  .scan-status.scanning { color:var(--green-700); }
-  .scan-status.success  { color:var(--green-700); font-weight:600; }
-  .scan-status.error    { color:var(--red); }
+  @keyframes scanAnim{ 0%,100%{top:20px;opacity:.7} 50%{top:calc(100% - 22px);opacity:1} }
+
+  /* Controls below scanner */
+  .scan-controls { display:flex; gap:10px; margin-top:14px; flex-wrap:wrap; }
+
+  /* Divider */
+  .or-divider {
+    display:flex; align-items:center; gap:12px;
+    color:var(--ink4); font-size:13px; margin:20px 0;
+  }
+  .or-divider::before,.or-divider::after { content:''; flex:1; height:1px; background:var(--paper3); }
 
   /* Manual entry */
-  .manual-wrap { padding:28px; }
-  .manual-wrap h3 { font-size:20px; margin-bottom:6px; }
-  .manual-wrap p  { font-size:14px; color:var(--text-300); margin-bottom:20px; }
-  .id-input-wrap { position:relative; }
-  .id-input-wrap input { padding-left:48px; font-size:15px; font-weight:500; letter-spacing:0.5px; }
-  .id-input-icon { position:absolute; left:14px; top:50%; transform:translateY(-50%); font-size:20px; }
-
-  /* Found patient card */
-  .found-card {
-    background: var(--green-50); border:2px solid var(--green-600);
-    border-radius:var(--radius-md); padding:20px;
-    display:flex; align-items:center; gap:16px;
-    animation: slideUp 0.3s ease;
+  .id-input-row { display:flex; gap:10px; }
+  .id-input {
+    flex:1; padding:12px 16px; border:1.5px solid var(--paper3); border-radius:var(--r8);
+    font-size:15px; font-family:'Sora',sans-serif; color:var(--ink2); outline:none; transition:all .18s;
   }
-  .found-info { flex:1; }
-  .found-name { font-family:'Cormorant Garamond',serif; font-size:20px; font-weight:700; }
-  .found-meta { display:flex; gap:12px; flex-wrap:wrap; margin-top:8px; }
-  .found-meta span { font-size:13px; color:var(--text-500); }
+  .id-input:focus { border-color:var(--g7); box-shadow:0 0 0 3px rgba(45,80,22,.1); }
 
-  /* History list */
-  .history-item {
-    display:flex; align-items:center; gap:12px; padding:12px 0;
-    border-bottom:1px solid var(--border); cursor:pointer;
-    transition:background 0.15s;
+  /* Status banner */
+  .status-bar {
+    padding:12px 18px; border-radius:var(--r8); font-size:13px; font-weight:600;
+    display:none; align-items:center; gap:10px; margin-top:14px;
   }
-  .history-item:last-child { border-bottom:none; }
-  .history-item:hover { background:var(--cream); margin:0 -8px; padding:12px 8px; border-radius:var(--radius-sm); }
+  .status-bar.show { display:flex; }
+  .status-bar.info    { background:#e8f4fd; color:#0c5460; }
+  .status-bar.success { background:var(--g1); color:var(--g7); }
+  .status-bar.error   { background:var(--red-l); color:var(--red); }
+  .status-bar.loading { background:#fef9e7; color:#7c5c00; }
+
+  /* ── Patient result area ──────────────────────────────────────── */
+  #patientResult { display:none; }
+
+  .pat-hero {
+    background:linear-gradient(135deg,var(--g9) 0%,var(--g8) 60%,#071204 100%);
+    border-radius:var(--r16); padding:24px 28px; margin-bottom:18px;
+    display:flex; align-items:center; gap:20px; flex-wrap:wrap; position:relative; overflow:hidden;
+  }
+  .pat-hero::before {
+    content:''; position:absolute; inset:0; opacity:.04;
+    background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.5) 0,rgba(255,255,255,.5) 1px,transparent 0,transparent 50%);
+    background-size:32px 32px;
+  }
+  .pat-hero-info { flex:1; position:relative; z-index:1; }
+  .pat-hero-name { font-family:'Lora',serif; font-size:22px; font-weight:700; color:white; margin-bottom:4px; }
+  .pat-hero-id   { font-size:12px; color:rgba(255,255,255,.5); margin-bottom:10px; }
+  .pat-hero-tags { display:flex; gap:8px; flex-wrap:wrap; }
+  .pat-tag {
+    padding:3px 10px; border-radius:20px; font-size:11px; font-weight:700;
+    background:rgba(255,255,255,.1); color:rgba(255,255,255,.75);
+    border:1px solid rgba(255,255,255,.15);
+  }
+  .pat-tag.gold { background:var(--gold); color:var(--g9); border:none; }
+  .pat-hero-actions { position:relative; z-index:1; display:flex; flex-direction:column; gap:8px; }
+
+  /* Tabs */
+  .ptabs { display:flex; border-bottom:2px solid var(--paper3); margin-bottom:18px; overflow-x:auto; }
+  .ptab {
+    padding:10px 18px; background:none; border:none; border-bottom:3px solid transparent;
+    margin-bottom:-2px; font-size:13px; font-weight:600; color:var(--ink4);
+    cursor:pointer; transition:all .2s; white-space:nowrap; display:flex; align-items:center; gap:6px;
+  }
+  .ptab:hover { color:var(--g7); }
+  .ptab.active { color:var(--g7); border-bottom-color:var(--g7); }
+  .ptab-pane { display:none; }
+  .ptab-pane.active { display:block; }
+
+  /* Info grid */
+  .info-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:12px; margin-bottom:18px; }
+  .ig-cell { background:var(--paper); border-radius:var(--r8); padding:12px 14px; }
+  .ig-key  { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:var(--ink4); margin-bottom:4px; }
+  .ig-val  { font-size:14px; font-weight:600; color:var(--ink2); }
+
+  /* Treatment plan form */
+  .plan-form { background:var(--paper); border-radius:var(--r12); padding:20px; margin-top:16px; }
+  .plan-form h4 { font-family:'Lora',serif; font-size:16px; font-weight:600; margin-bottom:14px; color:var(--ink); }
+  .plan-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  @media(max-width:600px) {
+    .plan-grid { grid-template-columns:1fr; }
+    .id-input-row { flex-direction:column; }
+    .pat-hero { flex-direction:column; align-items:flex-start; }
+  }
+  .plan-input, .plan-textarea, .plan-select {
+    width:100%; padding:10px 12px; border:1.5px solid var(--paper3); border-radius:var(--r8);
+    font-size:13px; font-family:'Sora',sans-serif; color:var(--ink2);
+    background:var(--white); transition:all .18s; outline:none;
+  }
+  .plan-input:focus,.plan-textarea:focus,.plan-select:focus {
+    border-color:var(--g7); box-shadow:0 0 0 3px rgba(45,80,22,.1);
+  }
+  .plan-textarea { resize:vertical; min-height:80px; }
+  .plan-full { grid-column:1/-1; }
+  .flabel {
+    display:block; font-size:11px; font-weight:700; text-transform:uppercase;
+    letter-spacing:.4px; color:var(--ink3); margin-bottom:4px;
+  }
+  .plan-section {
+    font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.5px;
+    color:var(--ink3); margin:16px 0 10px; border-bottom:1.5px solid var(--paper3); padding-bottom:6px;
+    grid-column:1/-1;
+  }
+
+  /* Vitals mini */
+  .vitals-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:14px; }
+  .vcard {
+    background:var(--paper); border-radius:var(--r8); padding:12px; text-align:center;
+  }
+  .vcard-val { font-family:'Lora',serif; font-size:18px; font-weight:700; color:var(--ink); }
+  .vcard-lbl { font-size:10px; color:var(--ink4); text-transform:uppercase; letter-spacing:.4px; margin-top:3px; }
+
+  /* Reports list */
+  .rep-row {
+    display:flex; align-items:center; gap:12px; padding:11px 0;
+    border-bottom:1px solid var(--paper3);
+  }
+  .rep-row:last-child { border-bottom:none; }
+  .rep-ic { width:36px; height:36px; border-radius:8px; background:var(--paper); display:flex; align-items:center; justify-content:center; font-size:18px; flex-shrink:0; }
+  .rep-info { flex:1; }
+  .rep-name { font-size:13px; font-weight:600; color:var(--ink2); }
+  .rep-meta { font-size:11px; color:var(--ink4); margin-top:2px; }
+
+  /* Existing plans */
+  .plan-row {
+    background:var(--white); border:1px solid var(--paper3); border-radius:var(--r12);
+    padding:14px 18px; margin-bottom:10px; cursor:pointer; transition:all .18s;
+  }
+  .plan-row:hover { border-color:var(--g5); transform:translateY(-1px); box-shadow:var(--sh1); }
+  .plan-title { font-size:14px; font-weight:600; color:var(--ink); margin-bottom:4px; }
+  .plan-meta  { font-size:12px; color:var(--ink4); display:flex; gap:12px; flex-wrap:wrap; }
 </style>
 
-<div class="scan-layout">
-  <div class="page-heading">
-    <h1>📷 Scan Patient</h1>
-    <p>Use camera or enter patient ID manually to view records</p>
-  </div>
+<div class="scan-wrap">
 
+  <!-- ── Scanner card ──────────────────────────────────────────────── -->
   <div class="scan-card">
-    <div class="scan-tabs">
-      <button class="scan-tab active" onclick="switchTab('camera', this)">📷 Camera Scan</button>
-      <button class="scan-tab" onclick="switchTab('manual', this)">⌨️ Manual Entry</button>
+    <div class="scan-card-title">📷 Scan Patient QR or Enter ID</div>
+
+    <!-- QR camera view -->
+    <div class="qr-area" id="qrArea">
+      <div class="qr-placeholder" id="qrPlaceholder">
+        <div class="qr-icon">📷</div>
+        <p style="font-size:13px;">Click "Start Camera" to scan a patient's QR card</p>
+      </div>
+      <video id="qrVideo" autoplay playsinline muted></video>
+      <div class="qr-corners" id="qrCorners" style="display:none">
+        <span></span><span></span><span></span><span></span>
+      </div>
+      <div class="scan-line" id="scanLine"></div>
     </div>
 
-    <!-- Camera Tab -->
-    <div id="tab-camera" class="camera-wrap">
-      <div class="video-frame" id="videoFrame">
-        <video id="video" autoplay playsinline muted></video>
-        <canvas id="canvas"></canvas>
-        <div class="scan-corners"><span></span></div>
-        <div class="scan-line" id="scanLine"></div>
-      </div>
-      <p class="scan-status" id="cameraStatus">Starting camera...</p>
-      <div style="display:flex;gap:12px;">
-        <button class="btn btn-primary" id="startBtn" onclick="startCamera()">▶ Start Camera</button>
-        <button class="btn btn-secondary" id="stopBtn" onclick="stopCamera()" style="display:none;">⏹ Stop</button>
-      </div>
-      <p style="font-size:12px;color:var(--text-300);text-align:center;">
-        Point the camera at a patient's AyurSutra QR code
-      </p>
+    <div class="scan-controls">
+      <button class="btn btn-primary" id="camBtn" onclick="toggleCamera()">📷 Start Camera</button>
+      <button class="btn btn-secondary" id="stopBtn" onclick="stopCamera()" style="display:none">⏹ Stop Camera</button>
+      <select class="btn btn-secondary" id="camSelect" style="display:none;min-width:140px;" onchange="switchCamera()">
+        <option value="">Select camera…</option>
+      </select>
     </div>
 
-    <!-- Manual Tab -->
-    <div id="tab-manual" style="display:none;" class="manual-wrap">
-      <h3>Enter Patient ID</h3>
-      <p>Type the patient's AyurSutra ID (e.g. AYR-PAT-000001) or scan from QR code</p>
-      <div class="form-group">
-        <div class="id-input-wrap">
-          <span class="id-input-icon">🪪</span>
-          <input type="text" class="form-control" id="manualId"
-                 placeholder="AYR-PAT-000001"
-                 oninput="this.value=this.value.toUpperCase()"
-                 onkeydown="if(event.key==='Enter') searchByManualId()">
+    <div class="status-bar" id="scanStatus"></div>
+
+    <div class="or-divider">or enter patient ID manually</div>
+
+    <!-- Manual entry -->
+    <div class="id-input-row">
+      <input class="id-input" id="manualId" type="text"
+             placeholder="e.g. AYR-PAT-000001"
+             oninput="this.value=this.value.toUpperCase()"
+             onkeydown="if(event.key==='Enter')lookupById()">
+      <button class="btn btn-primary" onclick="lookupById()">🔍 Find Patient</button>
+    </div>
+  </div>
+
+  <!-- ── Patient result ─────────────────────────────────────────────── -->
+  <div id="patientResult">
+
+    <!-- Hero -->
+    <div class="pat-hero">
+      <div class="avatar avatar-lg" id="rAv" style="background:var(--g5)">?</div>
+      <div class="pat-hero-info">
+        <div class="pat-hero-name" id="rName">—</div>
+        <div class="pat-hero-id"  id="rId">—</div>
+        <div class="pat-hero-tags" id="rTags"></div>
+      </div>
+      <div class="pat-hero-actions">
+        <button class="btn btn-gold" id="connectBtn" onclick="connectPatient()">🔗 Connect & Open</button>
+        <a class="btn btn-ghost" id="fullProfileBtn" href="#">👤 Full Profile →</a>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="ptabs">
+      <button class="ptab active" onclick="switchPTab('overview',this)">📋 Overview</button>
+      <button class="ptab" onclick="switchPTab('vitals',this)">🩺 Vitals</button>
+      <button class="ptab" onclick="switchPTab('reports',this)">📁 Reports</button>
+      <button class="ptab" onclick="switchPTab('plans',this)">💊 Treatment Plans</button>
+      <button class="ptab" onclick="switchPTab('new-plan',this)">➕ New Plan</button>
+    </div>
+
+    <!-- Overview tab -->
+    <div class="ptab-pane active" id="tab-overview">
+      <div class="scan-card" style="margin-bottom:14px;">
+        <div style="font-family:'Lora',serif;font-size:16px;font-weight:600;margin-bottom:14px;">🏥 Personal Info</div>
+        <div class="info-grid" id="overviewGrid">
+          <div class="s-box"><div class="s-spin"></div></div>
         </div>
-        <div class="form-hint">Format: AYR-PAT-XXXXXX or AYR-QR-XXXXXXXX</div>
       </div>
-      <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="searchByManualId()">
-        🔍 Find Patient
-      </button>
+      <div class="scan-card">
+        <div style="font-family:'Lora',serif;font-size:16px;font-weight:600;margin-bottom:14px;">🌿 Medical History</div>
+        <div id="medHistory" style="font-size:13px;color:var(--ink3);line-height:1.6;">—</div>
+      </div>
     </div>
-  </div>
 
-  <!-- Found Patient Result -->
-  <div id="foundSection" style="display:none;">
-    <div class="found-card" id="foundCard">
-      <div class="avatar avatar-lg" id="foundAvatar">?</div>
-      <div class="found-info">
-        <div class="found-name" id="foundName">—</div>
-        <div class="found-meta">
-          <span id="foundId">—</span>
-          <span>•</span>
-          <span id="foundDosha">—</span>
-          <span>•</span>
-          <span id="foundAge">—</span>
+    <!-- Vitals tab -->
+    <div class="ptab-pane" id="tab-vitals">
+      <div class="scan-card">
+        <div style="font-family:'Lora',serif;font-size:16px;font-weight:600;margin-bottom:14px;">🩺 Latest Vitals</div>
+        <div class="vitals-grid" id="vitalsGrid">
+          <div class="s-box"><div class="s-spin"></div></div>
+        </div>
+        <div style="margin-top:14px;font-size:12px;color:var(--ink4);" id="vitalsDate"></div>
+
+        <!-- Record vitals -->
+        <div style="margin-top:20px;border-top:1px solid var(--paper3);padding-top:18px;">
+          <div style="font-family:'Lora',serif;font-size:15px;font-weight:600;margin-bottom:12px;">📝 Record New Vitals</div>
+          <div class="plan-grid">
+            <div><label class="flabel">Systolic BP</label><input class="plan-input" id="v-sbp" type="number" placeholder="120"></div>
+            <div><label class="flabel">Diastolic BP</label><input class="plan-input" id="v-dbp" type="number" placeholder="80"></div>
+            <div><label class="flabel">Heart Rate (bpm)</label><input class="plan-input" id="v-hr" type="number" placeholder="72"></div>
+            <div><label class="flabel">Temperature (°C)</label><input class="plan-input" id="v-temp" type="number" step="0.1" placeholder="37.0"></div>
+            <div><label class="flabel">Weight (kg)</label><input class="plan-input" id="v-wt" type="number" step="0.1" placeholder="65"></div>
+            <div><label class="flabel">SpO2 (%)</label><input class="plan-input" id="v-spo2" type="number" placeholder="98"></div>
+          </div>
+          <div style="margin-top:12px;">
+            <label class="flabel">Notes</label>
+            <textarea class="plan-textarea" id="v-notes" placeholder="Clinical observations…" style="min-height:60px;"></textarea>
+          </div>
+          <button class="btn btn-primary" style="margin-top:12px;" onclick="recordVitals()">💾 Save Vitals</button>
         </div>
       </div>
-      <a class="btn btn-primary" id="foundViewBtn" href="#">View Full Profile →</a>
     </div>
-  </div>
 
-  <!-- Recent Scans -->
-  <div class="card card-p">
-    <h3 class="card-title" style="margin-bottom:16px;">Recent Scans</h3>
-    <div id="historyList">
-      <div class="state-box" style="padding:24px;">
-        <div class="state-icon">🕐</div>
-        <p>No recent scans this session</p>
+    <!-- Reports tab -->
+    <div class="ptab-pane" id="tab-reports">
+      <div class="scan-card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+          <div style="font-family:'Lora',serif;font-size:16px;font-weight:600;">📁 Medical Reports</div>
+        </div>
+        <div id="reportsList">
+          <div class="s-box"><div class="s-spin"></div></div>
+        </div>
       </div>
     </div>
-  </div>
+
+    <!-- Treatment Plans tab -->
+    <div class="ptab-pane" id="tab-plans">
+      <div class="scan-card">
+        <div style="font-family:'Lora',serif;font-size:16px;font-weight:600;margin-bottom:14px;">💊 Treatment Plans</div>
+        <div id="plansList">
+          <div class="s-box"><div class="s-spin"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- New Plan tab -->
+    <div class="ptab-pane" id="tab-new-plan">
+      <div class="scan-card">
+        <div style="font-family:'Lora',serif;font-size:18px;font-weight:600;margin-bottom:4px;">➕ Create Treatment Plan</div>
+        <p style="font-size:13px;color:var(--ink4);margin-bottom:20px;">Panchakarma treatment plan with therapies, diet, and prescriptions.</p>
+
+        <div class="plan-grid">
+          <div class="plan-full">
+            <label class="flabel">Plan Title *</label>
+            <input class="plan-input" id="p-title" placeholder="e.g. 14-Day Vata Pacification">
+          </div>
+          <div>
+            <label class="flabel">Plan Type</label>
+            <select class="plan-select" id="p-type">
+              <option value="PANCHAKARMA">Panchakarma</option>
+              <option value="DETOX">Detox</option>
+              <option value="REJUVENATION">Rejuvenation</option>
+              <option value="WEIGHT_MANAGEMENT">Weight Management</option>
+              <option value="STRESS_RELIEF">Stress Relief</option>
+              <option value="CUSTOM">Custom</option>
+            </select>
+          </div>
+          <div>
+            <label class="flabel">Duration (days)</label>
+            <input class="plan-input" id="p-duration" type="number" placeholder="14">
+          </div>
+          <div>
+            <label class="flabel">Start Date</label>
+            <input class="plan-input" id="p-start" type="date">
+          </div>
+          <div>
+            <label class="flabel">End Date</label>
+            <input class="plan-input" id="p-end" type="date">
+          </div>
+
+          <div class="plan-full">
+            <label class="flabel">Primary Diagnosis / Chief Complaint</label>
+            <input class="plan-input" id="p-diag" placeholder="e.g. Chronic joint pain, Vata imbalance">
+          </div>
+          <div class="plan-full">
+            <label class="flabel">Prakriti Assessment</label>
+            <select class="plan-select" id="p-dosha">
+              <option value="">— Select Dosha —</option>
+              <option value="VATA">Vata</option>
+              <option value="PITTA">Pitta</option>
+              <option value="KAPHA">Kapha</option>
+              <option value="VATA_PITTA">Vata-Pitta</option>
+              <option value="PITTA_KAPHA">Pitta-Kapha</option>
+              <option value="VATA_KAPHA">Vata-Kapha</option>
+              <option value="TRIDOSHA">Tridosha</option>
+            </select>
+          </div>
+
+          <div class="plan-section">🌿 Therapies</div>
+          <div class="plan-full" id="therapyRows">
+            <!-- Dynamically added -->
+          </div>
+          <div class="plan-full">
+            <button class="btn btn-secondary btn-sm" onclick="addTherapy()">+ Add Therapy</button>
+          </div>
+
+          <div class="plan-section">🥗 Diet Recommendations</div>
+          <div class="plan-full">
+            <label class="flabel">Foods to Include</label>
+            <textarea class="plan-textarea" id="p-foods-inc" placeholder="Warm soups, ghee, sesame oil, root vegetables…"></textarea>
+          </div>
+          <div class="plan-full">
+            <label class="flabel">Foods to Avoid</label>
+            <textarea class="plan-textarea" id="p-foods-av" placeholder="Raw salads, cold drinks, processed foods…"></textarea>
+          </div>
+          <div class="plan-full">
+            <label class="flabel">Lifestyle Advice</label>
+            <textarea class="plan-textarea" id="p-lifestyle" placeholder="Morning oil massage, early sleep, yoga…"></textarea>
+          </div>
+
+          <div class="plan-section">💊 Prescriptions / Medicines</div>
+          <div class="plan-full" id="rxRows"></div>
+          <div class="plan-full">
+            <button class="btn btn-secondary btn-sm" onclick="addRx()">+ Add Medicine</button>
+          </div>
+
+          <div class="plan-section">📝 Doctor's Notes</div>
+          <div class="plan-full">
+            <textarea class="plan-textarea" id="p-notes" placeholder="Additional notes, cautions, follow-up instructions…" style="min-height:100px;"></textarea>
+          </div>
+
+          <div class="plan-full" style="margin-top:8px;">
+            <button class="btn btn-primary btn-lg btn-full" id="savePlanBtn" onclick="savePlan()">
+              💾 Save Treatment Plan
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /patientResult -->
 </div>
 
 <script>
-  let stream = null;
-  let scanInterval = null;
-  let scanHistory = [];
+  // ════════════════════════════════════════════════════════════════════════════
+  // State
+  // ════════════════════════════════════════════════════════════════════════════
+  const doctor = Auth.user();
+  let foundPatient  = null;  // Patient entity from /patients/lookup
+  let connectionId  = null;  // existing connection id (if any)
+  let scanning      = false;
+  let codeReader    = null;
+  let videoStream   = null;
+  let cameras       = [];
 
-  // ── Tab Switching ─────────────────────────────────────────
-  function switchTab(tab, el) {
-    document.querySelectorAll('.scan-tab').forEach(t => t.classList.remove('active'));
-    el.classList.add('active');
-    document.getElementById('tab-camera').style.display = tab === 'camera' ? 'flex' : 'none';
-    document.getElementById('tab-manual').style.display  = tab === 'manual'  ? 'block' : 'none';
-    if (tab !== 'camera') stopCamera();
+  // ════════════════════════════════════════════════════════════════════════════
+  // Status helper
+  // ════════════════════════════════════════════════════════════════════════════
+  function setStatus(msg, type='info') {
+    const el = document.getElementById('scanStatus');
+    el.textContent = msg;
+    el.className = 'status-bar show ' + type;
+    if (type === 'success' || type === 'error') {
+      setTimeout(() => el.classList.remove('show'), 4000);
+    }
+  }
+  function clearStatus() {
+    document.getElementById('scanStatus').classList.remove('show');
   }
 
-  // ── Camera ───────────────────────────────────────────────
+  // ════════════════════════════════════════════════════════════════════════════
+  // QR Camera
+  // ════════════════════════════════════════════════════════════════════════════
+  async function toggleCamera() {
+    if (scanning) { stopCamera(); return; }
+    await startCamera();
+  }
+
   async function startCamera() {
-    const status = document.getElementById('cameraStatus');
-    const startBtn = document.getElementById('startBtn');
-    const stopBtn  = document.getElementById('stopBtn');
     try {
-      status.textContent = 'Requesting camera access...';
-      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-      const video = document.getElementById('video');
-      video.srcObject = stream;
-      video.play();
-      startBtn.style.display = 'none';
-      stopBtn.style.display  = 'block';
-      status.textContent = 'Scanning for QR code...';
-      status.className = 'scan-status scanning';
-      startQRScan();
-    } catch(e) {
-      status.textContent = '⚠ Camera not available. Use manual entry instead.';
-      status.className = 'scan-status error';
+      setStatus('Requesting camera access…', 'loading');
+
+      // Enumerate cameras
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      cameras = devices.filter(d => d.kind === 'videoinput');
+      const sel = document.getElementById('camSelect');
+      sel.innerHTML = cameras.map((c,i) =>
+        `<option value="${c.deviceId}">${c.label || 'Camera '+(i+1)}</option>`).join('');
+      sel.style.display = cameras.length > 1 ? '' : 'none';
+
+      const deviceId = sel.value || (cameras[cameras.length-1]?.deviceId);
+      const constraints = deviceId
+        ? { video: { deviceId: { exact: deviceId }, facingMode:'environment' } }
+        : { video: { facingMode:'environment' } };
+
+      videoStream = await navigator.mediaDevices.getUserMedia(constraints);
+      const video = document.getElementById('qrVideo');
+      video.srcObject = videoStream;
+      video.style.display = 'block';
+      document.getElementById('qrPlaceholder').style.display = 'none';
+      document.getElementById('qrCorners').style.display = 'block';
+      document.getElementById('scanLine').style.display = 'block';
+      document.getElementById('camBtn').style.display = 'none';
+      document.getElementById('stopBtn').style.display = '';
+      scanning = true;
+      clearStatus();
+      scanLoop(video);
+    } catch (err) {
+      console.error(err);
+      setStatus('Camera error: ' + (err.message || 'Permission denied'), 'error');
     }
   }
 
   function stopCamera() {
-    if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
-    clearInterval(scanInterval);
-    document.getElementById('startBtn').style.display = 'block';
-    document.getElementById('stopBtn').style.display  = 'none';
-    document.getElementById('cameraStatus').textContent = 'Camera stopped.';
-    document.getElementById('cameraStatus').className = 'scan-status';
+    scanning = false;
+    if (videoStream) { videoStream.getTracks().forEach(t => t.stop()); videoStream = null; }
+    const video = document.getElementById('qrVideo');
+    video.style.display = 'none';
+    video.srcObject = null;
+    document.getElementById('qrPlaceholder').style.display = 'flex';
+    document.getElementById('qrCorners').style.display = 'none';
+    document.getElementById('scanLine').style.display = 'none';
+    document.getElementById('camBtn').style.display = '';
+    document.getElementById('stopBtn').style.display = 'none';
   }
 
-  function startQRScan() {
-    const video  = document.getElementById('video');
-    const canvas = document.getElementById('canvas');
-    const ctx    = canvas.getContext('2d');
-
-    scanInterval = setInterval(() => {
-      if (video.readyState !== video.HAVE_ENOUGH_DATA) return;
-      canvas.width  = video.videoWidth;
-      canvas.height = video.videoHeight;
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const code = window.jsQR && jsQR(imageData.data, imageData.width, imageData.height);
-      if (code && code.data) {
-        handleQRResult(code.data);
-      }
-    }, 300);
-  }
-
-  function handleQRResult(qrData) {
-    clearInterval(scanInterval);
+  async function switchCamera() {
+    if (!scanning) return;
     stopCamera();
-    document.getElementById('cameraStatus').textContent = `✓ QR Detected: ${qrData}`;
-    document.getElementById('cameraStatus').className = 'scan-status success';
+    await startCamera();
+  }
 
-    // Format: AYURSUTRA:AYR-PAT-000001:Name:email  OR  just QR-uuid  OR  raw ID
-    let patientRef = qrData;
-    if (qrData.startsWith('AYURSUTRA:')) {
-      const parts = qrData.split(':');
-      patientRef = parts[1]; // AYR-PAT-000001
+  // Continuous scan using canvas + ZXing
+  async function scanLoop(video) {
+    if (typeof ZXing === 'undefined') {
+      // Fallback: ZXing not loaded, show message
+      setStatus('QR library not available — use manual entry below.', 'error');
+      stopCamera();
+      return;
     }
-    searchPatient(patientRef);
+    const hints = new Map();
+    const formats = [ZXing.BarcodeFormat.QR_CODE];
+    hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, formats);
+    const reader = new ZXing.BrowserQRCodeReader(hints);
+
+    const canvas  = document.createElement('canvas');
+    const ctx     = canvas.getContext('2d');
+
+    const tick = () => {
+      if (!scanning) return;
+      if (video.readyState === video.HAVE_ENOUGH_DATA) {
+        canvas.width  = video.videoWidth;
+        canvas.height = video.videoHeight;
+        ctx.drawImage(video, 0, 0);
+        try {
+          const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const result  = reader.decodeFromImageData(imgData);
+          if (result) {
+            const text = result.getText();
+            stopCamera();
+            handleScannedText(text);
+            return;
+          }
+        } catch(e) { /* no QR yet */ }
+      }
+      requestAnimationFrame(tick);
+    };
+    video.addEventListener('loadeddata', () => requestAnimationFrame(tick), { once: true });
+    if (video.readyState >= video.HAVE_ENOUGH_DATA) requestAnimationFrame(tick);
   }
 
-  // ── Manual Search ─────────────────────────────────────────
-  function searchByManualId() {
+  function handleScannedText(text) {
+    setStatus('QR scanned: ' + text.substring(0, 40) + '…', 'info');
+    document.getElementById('manualId').value = text;
+    lookupByRawText(text);
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // Lookup
+  // ════════════════════════════════════════════════════════════════════════════
+  async function lookupById() {
     const val = document.getElementById('manualId').value.trim();
-    if (!val) { Toast.warning('Please enter a patient ID'); return; }
-    searchPatient(val);
+    if (!val) { setStatus('Please enter a Patient ID first.', 'error'); return; }
+    lookupByRawText(val);
   }
 
-  // ── Patient Lookup ────────────────────────────────────────
-  async function searchPatient(ref) {
-    const foundSection = document.getElementById('foundSection');
-    foundSection.style.display = 'block';
-    document.getElementById('foundCard').innerHTML = loadingHTML('Looking up patient...');
-
+  async function lookupByRawText(raw) {
+    setStatus('Looking up patient…', 'loading');
     try {
-      let patient = null;
-
-      // Try QR code lookup first (for QR-uuid format)
-      if (ref.startsWith('QR-') || ref.startsWith('AYR-QR-')) {
-        try {
-          const r = await apiFetch(`/patients/qr/${ref}`);
-          if (r.data) patient = r.data;
-        } catch(e) {}
-      }
-
-      // Try by patient ID text search (backend TODO: implement this)
-      if (!patient) {
-        try {
-          const r = await apiFetch(`/patients`);
-          const all = r.data || [];
-          patient = all.find(p => p.patientId === ref || p.id == ref || (p.qrCode && p.qrCode === ref));
-        } catch(e) {}
-      }
-
-      if (patient) {
-        renderFoundPatient(patient);
-        addToHistory(patient);
+      const res = await apiFetch('/patients/lookup?patientId=' + encodeURIComponent(raw));
+      if (res.success && res.data) {
+        foundPatient = res.data;
+        renderPatient(foundPatient);
+        setStatus('Patient found — loading records…', 'success');
+        loadPatientData(foundPatient.id);
       } else {
-        document.getElementById('foundCard').innerHTML = `
-          <div style="text-align:center;width:100%;padding:12px;">
-            <div style="font-size:32px;margin-bottom:8px;">❌</div>
-            <div style="font-weight:600;color:var(--red);">Patient not found</div>
-            <div style="font-size:13px;color:var(--text-300);margin-top:4px;">ID: ${ref}</div>
-          </div>`;
+        setStatus(res.message || 'Patient not found. Check the ID and try again.', 'error');
       }
     } catch(e) {
-      document.getElementById('foundCard').innerHTML = errorHTML('Could not search patient. Check your connection.');
+      setStatus('Network error: ' + e.message, 'error');
     }
   }
 
-  function renderFoundPatient(p) {
-    const initials = getInitials(p.firstName, p.lastName);
-    const bg = getAvatarColor((p.firstName||'') + (p.lastName||''));
-    const dosha = (p.doshaType || '—').replace('_','-');
-    const patId = p.patientId || ('AYR-PAT-' + String(p.id).padStart(6,'0'));
+  // ════════════════════════════════════════════════════════════════════════════
+  // Render patient hero
+  // ════════════════════════════════════════════════════════════════════════════
+  function renderPatient(p) {
+    document.getElementById('patientResult').style.display = 'block';
+    const initials = ((p.firstName||'?')[0]+(p.lastName||'?')[0]).toUpperCase();
+    document.getElementById('rAv').textContent = initials;
+    document.getElementById('rName').textContent = (p.firstName||'') + ' ' + (p.lastName||'');
+    document.getElementById('rId').textContent = p.patientId || ('AYR-PAT-' + String(p.id).padStart(6,'0'));
+    document.getElementById('fullProfileBtn').href = 'patient-profile-doctor.html?id=' + p.id;
 
-    document.getElementById('foundCard').outerHTML = `
-      <div class="found-card" id="foundCard">
-        <div class="avatar avatar-lg" style="background:${bg};flex-shrink:0;">${initials}</div>
-        <div class="found-info">
-          <div class="found-name">${p.firstName} ${p.lastName}</div>
-          <div class="found-meta">
-            <span>🪪 ${patId}</span>
-            <span>• ${dosha}</span>
-            ${p.dateOfBirth ? `<span>• Age ${new Date().getFullYear() - new Date(p.dateOfBirth).getFullYear()}</span>` : ''}
-            ${p.bloodGroup ? `<span>• 🩸 ${p.bloodGroup}</span>` : ''}
+    const tags = [];
+    if (p.doshaType) tags.push(`<span class="pat-tag gold">${p.doshaType.replace('_','-')} Dosha</span>`);
+    if (p.bloodGroup)tags.push(`<span class="pat-tag">🩸 ${p.bloodGroup}</span>`);
+    if (p.gender)   tags.push(`<span class="pat-tag">${p.gender}</span>`);
+    document.getElementById('rTags').innerHTML = tags.join('');
+
+    // Populate overview grid
+    const bmi = p.heightCm && p.weightKg
+      ? (p.weightKg / Math.pow(p.heightCm/100, 2)).toFixed(1) : '—';
+    document.getElementById('overviewGrid').innerHTML = [
+      ['👤','Name', (p.firstName||'') + ' ' + (p.lastName||'')],
+      ['📧','Email', p.email||'—'],
+      ['📞','Phone', p.phone||'—'],
+      ['🎂','DOB', p.dateOfBirth ? p.dateOfBirth.split('T')[0] : '—'],
+      ['⚤','Gender', p.gender||'—'],
+      ['🩸','Blood Group', p.bloodGroup||'—'],
+      ['📏','Height', p.heightCm ? p.heightCm+'cm' : '—'],
+      ['⚖️','Weight', p.weightKg ? p.weightKg+'kg' : '—'],
+      ['📊','BMI', bmi],
+      ['🌀','Dosha', p.doshaType ? p.doshaType.replace('_','-') : '—'],
+      ['🏠','Address', p.address||'—'],
+      ['🆘','Emergency Contact', p.emergencyContactName ? p.emergencyContactName+' ('+p.emergencyContactPhone+')' : '—'],
+    ].map(([ic,k,v])=>`
+      <div class="ig-cell">
+        <div class="ig-key">${ic} ${k}</div>
+        <div class="ig-val">${v}</div>
+      </div>`).join('');
+
+    document.getElementById('medHistory').innerHTML =
+      p.medicalHistory
+        ? `<p>${p.medicalHistory}</p>`
+        : '<p style="color:var(--ink4)">No medical history recorded.</p>';
+
+    // Pre-fill dosha in plan form
+    if (p.doshaType) document.getElementById('p-dosha').value = p.doshaType;
+
+    // Set today as default start date
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('p-start').value = today;
+
+    // Check existing connection
+    checkConnection(p.id);
+
+    window.scrollTo({ top: document.getElementById('patientResult').offsetTop - 80, behavior:'smooth' });
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // Connection
+  // ════════════════════════════════════════════════════════════════════════════
+  async function checkConnection(patientId) {
+    try {
+      const res = await apiFetch('/connections/doctor/' + doctor.id);
+      const list = Array.isArray(res) ? res : (res.data || []);
+      const conn = list.find(c => c.patient?.id == patientId || c.patientId == patientId);
+      if (conn && conn.status === 'CONNECTED') {
+        connectionId = conn.id;
+        document.getElementById('connectBtn').textContent = '✅ Connected';
+        document.getElementById('connectBtn').className = 'btn btn-secondary';
+      }
+    } catch(e) {}
+  }
+
+  async function connectPatient() {
+    if (!foundPatient) return;
+    const btn = document.getElementById('connectBtn');
+    btn.disabled = true; btn.textContent = '⏳ Connecting…';
+    try {
+      const patId = foundPatient.patientId || ('AYR-PAT-' + String(foundPatient.id).padStart(6,'0'));
+      const res = await apiFetch('/connections/connect-by-patient-id', {
+        method:'POST',
+        body: JSON.stringify({ doctorId: doctor.id, patientId: patId })
+      });
+      if (res.success) {
+        connectionId = res.data?.id;
+        btn.textContent = '✅ Connected';
+        btn.className = 'btn btn-secondary';
+        btn.disabled = false;
+        Toast.success('Connected with ' + foundPatient.firstName + '!');
+        // Reload patient data now that we're connected
+        loadPatientData(foundPatient.id);
+      } else {
+        btn.disabled = false; btn.textContent = '🔗 Connect & Open';
+        Toast.error(res.message || 'Connection failed');
+      }
+    } catch(e) {
+      btn.disabled = false; btn.textContent = '🔗 Connect & Open';
+      Toast.error('Error: ' + e.message);
+    }
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // Load all patient data
+  // ════════════════════════════════════════════════════════════════════════════
+  async function loadPatientData(patientId) {
+    await Promise.allSettled([
+      loadVitals(patientId),
+      loadReports(patientId),
+      loadPlans(patientId)
+    ]);
+  }
+
+  // ── Vitals ───────────────────────────────────────────────────────────────
+  async function loadVitals(patientId) {
+    try {
+      const res = await apiFetch('/vitals/' + patientId + '/latest');
+      const v = res.data;
+      if (!v) {
+        document.getElementById('vitalsGrid').innerHTML =
+          '<div class="s-box" style="grid-column:1/-1"><div class="s-icon">🩺</div><h4>No vitals recorded yet</h4></div>';
+        return;
+      }
+      document.getElementById('vitalsDate').textContent =
+        'Recorded: ' + (v.recordedAt ? new Date(v.recordedAt).toLocaleString() : '—');
+      document.getElementById('vitalsGrid').innerHTML = [
+        [v.systolicBP && v.diastolicBP ? v.systolicBP+'/'+v.diastolicBP : '—', 'Blood Pressure'],
+        [v.heartRate ? v.heartRate+' bpm' : '—',   'Heart Rate'],
+        [v.temperature ? v.temperature+'°C' : '—', 'Temperature'],
+        [v.oxygenSaturation ? v.oxygenSaturation+'%' : '—', 'SpO2'],
+        [v.weight ? v.weight+'kg' : '—', 'Weight'],
+        [v.bloodSugar ? v.bloodSugar+' mg/dL' : '—', 'Blood Sugar'],
+      ].map(([val,lbl])=>`
+        <div class="vcard">
+          <div class="vcard-val">${val}</div>
+          <div class="vcard-lbl">${lbl}</div>
+        </div>`).join('');
+    } catch(e) {
+      document.getElementById('vitalsGrid').innerHTML =
+        '<div class="s-box s-err" style="grid-column:1/-1"><h4>Could not load vitals</h4></div>';
+    }
+  }
+
+  async function recordVitals() {
+    if (!foundPatient) return;
+    const body = {};
+    const get = id => { const v=document.getElementById(id).value; return v ? parseFloat(v) : null; };
+    const sbp = get('v-sbp'), dbp = get('v-dbp');
+    if (sbp) body.systolicBP = sbp;
+    if (dbp) body.diastolicBP = dbp;
+    const hr = get('v-hr'); if(hr) body.heartRate = hr;
+    const tmp= get('v-temp'); if(tmp) body.temperature = tmp;
+    const wt = get('v-wt'); if(wt) body.weight = wt;
+    const sp = get('v-spo2'); if(sp) body.oxygenSaturation = sp;
+    const nt = document.getElementById('v-notes').value.trim(); if(nt) body.notes = nt;
+
+    if (!Object.keys(body).length) { Toast.error('Enter at least one vital value'); return; }
+    try {
+      const res = await apiFetch('/vitals/' + foundPatient.id, { method:'POST', body:JSON.stringify(body) });
+      if (res.success) {
+        Toast.success('Vitals recorded!');
+        ['v-sbp','v-dbp','v-hr','v-temp','v-wt','v-spo2','v-notes'].forEach(id => document.getElementById(id).value = '');
+        loadVitals(foundPatient.id);
+      } else Toast.error(res.message || 'Failed to save vitals');
+    } catch(e) { Toast.error('Error: ' + e.message); }
+  }
+
+  // ── Reports ──────────────────────────────────────────────────────────────
+  const REPORT_ICONS = { LAB_REPORT:'🧪', RADIOLOGY:'🩻', PRESCRIPTION:'💊', DISCHARGE_SUMMARY:'📄', CONSULTATION_NOTES:'📝', OTHER:'📁' };
+
+  async function loadReports(patientId) {
+    try {
+      const res  = await apiFetch('/reports/' + patientId);
+      const list = res.data || [];
+      if (!list.length) {
+        document.getElementById('reportsList').innerHTML =
+          '<div class="s-box"><div class="s-icon">📁</div><h4>No reports uploaded yet</h4></div>';
+        return;
+      }
+      document.getElementById('reportsList').innerHTML = list.map(r => `
+        <div class="rep-row">
+          <div class="rep-ic">${REPORT_ICONS[r.reportType]||'📄'}</div>
+          <div class="rep-info">
+            <div class="rep-name">${r.title||'Untitled'}</div>
+            <div class="rep-meta">${(r.reportType||'').replace(/_/g,' ')} · ${r.reportDate ? new Date(r.reportDate).toLocaleDateString() : '—'}</div>
+            ${r.extractedText ? '<div class="rep-meta" style="margin-top:4px;font-style:italic;color:var(--ink3);">📜 OCR text available</div>' : ''}
           </div>
-        </div>
-        <a class="btn btn-primary" href="patient-profile-doctor.html?id=${p.id}">View Profile →</a>
-      </div>`;
-    Toast.success(`Patient found: ${p.firstName} ${p.lastName}`);
+          <span class="badge badge-gray">${r.fileType||''}</span>
+        </div>`).join('');
+    } catch(e) {
+      document.getElementById('reportsList').innerHTML =
+        '<div class="s-box s-err"><h4>Could not load reports</h4></div>';
+    }
   }
 
-  function addToHistory(p) {
-    scanHistory.unshift(p);
-    if (scanHistory.length > 5) scanHistory.pop();
-    renderHistory();
-  }
-
-  function renderHistory() {
-    if (!scanHistory.length) return;
-    document.getElementById('historyList').innerHTML = scanHistory.map(p => {
-      const bg = getAvatarColor((p.firstName||'')+(p.lastName||''));
-      const initials = getInitials(p.firstName, p.lastName);
-      const patId = p.patientId || ('AYR-PAT-'+String(p.id).padStart(6,'0'));
-      return `
-        <div class="history-item" onclick="window.location.href='patient-profile-doctor.html?id=${p.id}'">
-          <div class="avatar avatar-sm" style="background:${bg}">${initials}</div>
-          <div style="flex:1">
-            <div style="font-size:14px;font-weight:600;">${p.firstName} ${p.lastName}</div>
-            <div style="font-size:12px;color:var(--text-300)">${patId}</div>
+  // ── Treatment Plans ───────────────────────────────────────────────────────
+  async function loadPlans(patientId) {
+    try {
+      const res  = await apiFetch('/treatment-plans/patient/' + patientId);
+      const list = res.data || [];
+      if (!list.length) {
+        document.getElementById('plansList').innerHTML =
+          '<div class="s-box"><div class="s-icon">💊</div><h4>No treatment plans yet</h4><p>Create one in the "New Plan" tab.</p></div>';
+        return;
+      }
+      document.getElementById('plansList').innerHTML = list.map(p => `
+        <div class="plan-row" onclick="window.location.href='treatment-plans.html?planId=${p.id}'">
+          <div class="plan-title">${p.title||'Untitled Plan'}</div>
+          <div class="plan-meta">
+            <span>📅 ${p.startDate ? p.startDate.split('T')[0] : '—'} → ${p.endDate ? p.endDate.split('T')[0] : '—'}</span>
+            <span>🏥 ${(p.planType||'').replace(/_/g,' ')}</span>
+            ${p.status ? `<span class="badge badge-${p.status==='ACTIVE'?'green':'gray'}">${p.status}</span>` : ''}
           </div>
-          <span style="font-size:12px;color:var(--text-300)">Just now →</span>
-        </div>`;
-    }).join('');
+        </div>`).join('');
+    } catch(e) {
+      document.getElementById('plansList').innerHTML =
+        '<div class="s-box s-err"><h4>Could not load plans</h4></div>';
+    }
   }
 
-  // Auto-start camera on load
-  document.addEventListener('DOMContentLoaded', startCamera);
+  // ════════════════════════════════════════════════════════════════════════════
+  // New Treatment Plan
+  // ════════════════════════════════════════════════════════════════════════════
+  let therapyCount = 0, rxCount = 0;
+
+  function addTherapy() {
+    therapyCount++;
+    const id = 'th-' + therapyCount;
+    const div = document.createElement('div');
+    div.id = id;
+    div.style.cssText = 'display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:8px;margin-bottom:8px;align-items:end;';
+    div.innerHTML = `
+      <div><label class="flabel">Therapy Name</label>
+        <select class="plan-select">
+          <option>Abhyanga (Oil Massage)</option>
+          <option>Shirodhara</option>
+          <option>Swedana (Steam)</option>
+          <option>Basti (Enema)</option>
+          <option>Nasya</option>
+          <option>Vamana</option>
+          <option>Virechana</option>
+          <option>Raktamokshana</option>
+          <option>Kizhi</option>
+          <option>Pizhichil</option>
+          <option>Udwartana</option>
+          <option value="custom">Other…</option>
+        </select>
+      </div>
+      <div><label class="flabel">Duration (min)</label><input class="plan-input" type="number" placeholder="60"></div>
+      <div><label class="flabel">Days</label><input class="plan-input" placeholder="Daily"></div>
+      <button class="btn btn-danger btn-sm" style="margin-bottom:0" onclick="document.getElementById('${id}').remove()">✕</button>`;
+    document.getElementById('therapyRows').appendChild(div);
+  }
+
+  function addRx() {
+    rxCount++;
+    const id = 'rx-' + rxCount;
+    const div = document.createElement('div');
+    div.id = id;
+    div.style.cssText = 'display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:8px;margin-bottom:8px;align-items:end;';
+    div.innerHTML = `
+      <div><label class="flabel">Medicine Name</label><input class="plan-input" placeholder="e.g. Triphala Churna"></div>
+      <div><label class="flabel">Dosage</label><input class="plan-input" placeholder="5g"></div>
+      <div><label class="flabel">Frequency</label>
+        <select class="plan-select">
+          <option>Once daily</option><option>Twice daily</option><option>Three times daily</option>
+          <option>Before meals</option><option>After meals</option><option>At bedtime</option>
+        </select>
+      </div>
+      <button class="btn btn-danger btn-sm" style="margin-bottom:0" onclick="document.getElementById('${id}').remove()">✕</button>`;
+    document.getElementById('rxRows').appendChild(div);
+  }
+
+  // Read therapy rows
+  function readTherapies() {
+    const rows = document.getElementById('therapyRows').children;
+    const list = [];
+    for (const row of rows) {
+      const sel  = row.querySelectorAll('select')[0];
+      const name = sel?.value || '';
+      const dur  = row.querySelectorAll('input')[0]?.value || '';
+      const days = row.querySelectorAll('input')[1]?.value || '';
+      if (name) list.push({ name, durationMinutes: dur ? parseInt(dur) : null, schedule: days });
+    }
+    return list;
+  }
+
+  function readRx() {
+    const rows = document.getElementById('rxRows').children;
+    const list = [];
+    for (const row of rows) {
+      const name  = row.querySelectorAll('input')[0]?.value || '';
+      const dose  = row.querySelectorAll('input')[1]?.value || '';
+      const freq  = row.querySelectorAll('select')[0]?.value || '';
+      if (name) list.push({ medicineName: name, dosage: dose, frequency: freq });
+    }
+    return list;
+  }
+
+  async function savePlan() {
+    if (!foundPatient) { Toast.error('No patient loaded'); return; }
+    const title = document.getElementById('p-title').value.trim();
+    if (!title) { Toast.error('Plan title is required'); return; }
+
+    const btn = document.getElementById('savePlanBtn');
+    btn.disabled = true; btn.textContent = '⏳ Saving…';
+
+    const foodsInc = document.getElementById('p-foods-inc').value.trim();
+    const foodsAv  = document.getElementById('p-foods-av').value.trim();
+    const lifestyle= document.getElementById('p-lifestyle').value.trim();
+
+    const body = {
+      title,
+      planType:    document.getElementById('p-type').value,
+      duration:    parseInt(document.getElementById('p-duration').value) || null,
+      startDate:   document.getElementById('p-start').value || null,
+      endDate:     document.getElementById('p-end').value || null,
+      diagnosis:   document.getElementById('p-diag').value.trim() || null,
+      doshaType:   document.getElementById('p-dosha').value || null,
+      doctorNotes: document.getElementById('p-notes').value.trim() || null,
+      therapies:   readTherapies(),
+      prescriptions: readRx(),
+      dietItems: [
+        ...foodsInc.split('\n').filter(Boolean).map(f => ({ itemName:f.trim(), category:'INCLUDE' })),
+        ...foodsAv.split('\n').filter(Boolean).map(f => ({ itemName:f.trim(), category:'AVOID' })),
+        ...(lifestyle ? [{ itemName:lifestyle, category:'LIFESTYLE' }] : []),
+      ],
+      patientId: foundPatient.id,
+      doctorId:  doctor.id,
+      status: 'ACTIVE',
+    };
+
+    try {
+      const res = await apiFetch('/treatment-plans/doctor/' + doctor.id + '/patient/' + foundPatient.id, {
+        method:'POST', body:JSON.stringify(body)
+      });
+      if (res.success) {
+        Toast.success('Treatment plan saved!');
+        btn.disabled = false; btn.textContent = '💾 Save Treatment Plan';
+        // Switch to plans tab and reload
+        switchPTab('plans', document.querySelectorAll('.ptab')[3]);
+        loadPlans(foundPatient.id);
+        // Clear form
+        ['p-title','p-diag','p-notes','p-foods-inc','p-foods-av','p-lifestyle','p-duration','p-end'].forEach(id => {
+          document.getElementById(id).value = '';
+        });
+        document.getElementById('therapyRows').innerHTML = '';
+        document.getElementById('rxRows').innerHTML = '';
+        therapyCount = 0; rxCount = 0;
+      } else {
+        Toast.error(res.message || 'Failed to save plan');
+        btn.disabled = false; btn.textContent = '💾 Save Treatment Plan';
+      }
+    } catch(e) {
+      Toast.error('Error: ' + e.message);
+      btn.disabled = false; btn.textContent = '💾 Save Treatment Plan';
+    }
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // Tab switcher
+  // ════════════════════════════════════════════════════════════════════════════
+  function switchPTab(name, btn) {
+    document.querySelectorAll('.ptab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.ptab-pane').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + name).classList.add('active');
+  }
+
+  // Init: add one therapy row by default when New Plan tab clicked
+  document.addEventListener('DOMContentLoaded', () => {
+    // Pre-seed today's date
+    document.getElementById('p-start').value = new Date().toISOString().split('T')[0];
+  });
 </script>
 </body>
 </html>

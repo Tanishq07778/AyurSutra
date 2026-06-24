@@ -14,6 +14,7 @@ public interface ConnectionRepository extends JpaRepository<Connection, Long> {
     List<Connection> findByPatient_IdOrderByRequestedAtDesc(Long patientId);
     List<Connection> findByDoctor_IdOrderByRequestedAtDesc(Long doctorId);
     List<Connection> findByDoctor_IdAndStatusOrderByRequestedAtDesc(Long doctorId, ConnectionStatus status);
+    List<Connection> findByPatientIdAndDoctorId(Long patientId, Long doctorId);
     List<Connection> findByPatient_IdAndStatusOrderByRequestedAtDesc(Long patientId, ConnectionStatus status);
     Optional<Connection> findByPatient_IdAndDoctor_Id(Long patientId, Long doctorId);
     long countByDoctor_IdAndStatus(Long doctorId, ConnectionStatus status);

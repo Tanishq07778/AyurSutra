@@ -44,6 +44,35 @@ public class PatientController {
         return ResponseEntity.ok(ApiResponse.success("Patient found", patient));
     }
 
+    /**
+     * GET /api/v1/patients/lookup?patientId=AYR-PAT-000001
+     *
+     * NEW: Look up a patient by their human-readable patientId string.
+     * Used by the doctor scan/enter-ID flow so the doctor can find and
+     * auto-connect to a patient without knowing their numeric DB id.
+     * Also accepts the raw QR payload format: "AYURSUTRA:AYR-PAT-000001:..."
+     */
+    @GetMapping("/lookup")
+    public ResponseEntity<ApiResponse<Patient>> lookupPatient(
+            @RequestParam String patientId) {
+        try {
+            // Strip the QR prefix if the doctor's camera returned the full payload
+            String id = patientId;
+            if (id.startsWith("AYURSUTRA:")) {
+                String[] parts = id.split(":");
+                if (parts.length >= 2) id = parts[1];
+            }
+            Patient patient = patientService.getPatientByPatientId(id.trim());
+            return ResponseEntity.ok(ApiResponse.success("Patient found", patient));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(ApiResponse.error(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("Lookup failed: " + e.getMessage()));
+        }
+    }
+
     /** GET /api/v1/patients/profile/{id} */
     @GetMapping("/profile/{id}")
     public ResponseEntity<ApiResponse<Patient>> getPatientProfile(@PathVariable Long id) {
@@ -61,7 +90,6 @@ public class PatientController {
     /**
      * PUT /api/v1/patients/{id}/update
      * Edit Profile endpoint — updates only the fields that are provided (non-null).
-     * Uses a separate PatientUpdateRequest DTO (no password/email change here).
      */
     @PutMapping("/{id}/update")
     public ResponseEntity<ApiResponse<UserResponse>> updatePatientProfile(

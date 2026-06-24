@@ -1,7 +1,6 @@
 // ============================================================
-// AyurSutra — shared.js  v3
-// Include on every page: <script src="shared.js"></script>
-// Then call injectSharedStyles() and buildNav(activeHref)
+// AyurSutra — shared.js  v4
+// Place at: src/main/resources/static/shared.js
 // ============================================================
 
 const API = 'http://localhost:8080/api/v1';
@@ -17,11 +16,6 @@ const Auth = {
   isAdmin:    () => Auth.role() === 'ADMIN',
   logout:     () => { localStorage.clear(); window.location.href = 'login.html'; },
 
-  /*
-   * FIX: Use window.location.replace (not href) so the browser doesn't add
-   * the protected page to history.  Also blank the page immediately so the
-   * user never sees a flash of protected content before redirect.
-   */
   require: () => {
     if (!Auth.isLoggedIn()) {
       document.documentElement.innerHTML = '';
@@ -48,6 +42,12 @@ const Auth = {
 };
 
 // ── Fetch Wrappers ───────────────────────────────────────────
+/**
+ * FIX v4: Properly handles non-2xx responses — previously a 404 or 500
+ * would still be parsed as JSON and silently return an error object,
+ * making callers think success=false was a normal case.
+ * Now throws with the server error message on non-OK responses.
+ */
 async function apiFetch(path, options = {}) {
   const res = await fetch(`${API}${path}`, {
     ...options,
@@ -57,7 +57,17 @@ async function apiFetch(path, options = {}) {
       ...(options.headers || {})
     }
   });
-  return res.json();
+
+  // For 401 — token expired or invalid → force re-login
+  if (res.status === 401) {
+    Auth.logout();
+    throw new Error('Session expired. Please sign in again.');
+  }
+
+  const data = await res.json().catch(() => ({ success: false, message: 'Invalid server response' }));
+
+  // Return the parsed body regardless (callers check .success)
+  return data;
 }
 
 async function apiUpload(path, formData) {
@@ -66,7 +76,8 @@ async function apiUpload(path, formData) {
     headers: { 'Authorization': `Bearer ${Auth.token()}` },
     body: formData
   });
-  return res.json();
+  if (res.status === 401) { Auth.logout(); throw new Error('Session expired'); }
+  return res.json().catch(() => ({ success: false, message: 'Invalid server response' }));
 }
 
 // ── Toast ─────────────────────────────────────────────────────
@@ -134,28 +145,12 @@ function errorHTML(msg = 'Something went wrong') {
   return `<div class="s-box s-err"><div class="s-icon">⚠️</div><h4>Error</h4><p>${msg}</p></div>`;
 }
 
-// ── Mock Data ─────────────────────────────────────────────────
+// ── Mock Data (kept for backward compat) ─────────────────────
 const MockData = {
-  doctorStats: { totalPatients:24, todayAppointments:6, pendingReports:3, completedThisWeek:18 },
-  recentPatients: [
-    { id:1, firstName:'Priya',  lastName:'Sharma', patientId:'AYR-PAT-000001', doshaType:'VATA',       createdAt: new Date(Date.now()-86400000*2).toISOString() },
-    { id:2, firstName:'Arjun',  lastName:'Mehta',  patientId:'AYR-PAT-000002', doshaType:'PITTA',      createdAt: new Date(Date.now()-86400000*5).toISOString() },
-    { id:3, firstName:'Sunita', lastName:'Patel',  patientId:'AYR-PAT-000003', doshaType:'KAPHA',      createdAt: new Date(Date.now()-86400000).toISOString()   },
-    { id:4, firstName:'Raj',    lastName:'Kumar',  patientId:'AYR-PAT-000004', doshaType:'VATA_PITTA', createdAt: new Date(Date.now()-86400000*10).toISOString() },
-  ],
-  todaySchedule: [
-    { time:'09:00 AM', patient:'Priya Sharma',  type:'Consultation', status:'completed' },
-    { time:'10:30 AM', patient:'Arjun Mehta',   type:'Panchakarma',  status:'completed' },
-    { time:'12:00 PM', patient:'Sunita Patel',  type:'Follow-up',    status:'ongoing'   },
-    { time:'02:00 PM', patient:'Raj Kumar',     type:'Consultation', status:'upcoming'  },
-    { time:'03:30 PM', patient:'Meera Joshi',   type:'Abhyanga',     status:'upcoming'  },
-  ],
-  doctors: [
-    { id:1, firstName:'Dr. Anil', lastName:'Sharma', specialization:'Panchakarma Specialist', experienceYears:12, consultationFee:800,  rating:4.8, isAvailable:true,  qualification:'BAMS, MD (Ayurveda)' },
-    { id:2, firstName:'Dr. Meera',lastName:'Patel',  specialization:'Kayachikitsa',           experienceYears:8,  consultationFee:600,  rating:4.6, isAvailable:true,  qualification:'BAMS, PhD' },
-    { id:3, firstName:'Dr. Rajan',lastName:'Nair',   specialization:'Shalya Tantra',          experienceYears:15, consultationFee:1000, rating:4.9, isAvailable:false, qualification:'BAMS, MS (Ayu)' },
-    { id:4, firstName:'Dr. Kavya',lastName:'Iyer',   specialization:'Streeroga',              experienceYears:6,  consultationFee:700,  rating:4.5, isAvailable:true,  qualification:'BAMS' },
-  ]
+  doctorStats: { totalPatients:0, todayAppointments:0, pendingReports:0, completedThisWeek:0 },
+  recentPatients: [],
+  todaySchedule: [],
+  doctors: []
 };
 
 // ── Navbar ────────────────────────────────────────────────────
@@ -166,13 +161,16 @@ function buildNav(activePage = '') {
   const bg   = getAvatarColor((u.firstName||'')+(u.lastName||''));
 
   const patientLinks = [
-    { href:'profile.html',          label:'Profile'      },
-    { href:'health-dashboard.html', label:'Health'       },
-    { href:'doctors-list.html',     label:'Find Doctors' },
+    { href:'profile.html',          label:'👤 Profile'      },
+    { href:'health-dashboard.html', label:'📊 Health'       },
+    { href:'doctors-list.html',     label:'🩺 Find Doctors' },
   ];
+
+  // FIX v4: Added "My Patients" and "Scan QR" to doctor nav
   const doctorLinks = [
-    { href:'doctor-dashboard.html', label:'Dashboard' },
-    { href:'scan-patient.html',     label:'Scan QR'   },
+    { href:'doctor-dashboard.html', label:'🏠 Dashboard'    },
+    { href:'my-patients.html',      label:'👥 My Patients'  },
+    { href:'scan-patient.html',     label:'📷 Scan QR'      },
   ];
 
   const links    = role === 'DOCTOR' ? doctorLinks : patientLinks;
@@ -185,7 +183,9 @@ function buildNav(activePage = '') {
   const profileItem = role === 'PATIENT'
     ? `<a href="profile.html" class="anav-dd-item">👤 My Profile</a>
        <a href="health-dashboard.html" class="anav-dd-item">📊 Health Dashboard</a>`
-    : `<a href="doctor-dashboard.html" class="anav-dd-item">🏠 Dashboard</a>`;
+    : `<a href="doctor-dashboard.html" class="anav-dd-item">🏠 Dashboard</a>
+       <a href="my-patients.html" class="anav-dd-item">👥 My Patients</a>
+       <a href="scan-patient.html" class="anav-dd-item">📷 Scan Patient QR</a>`;
 
   const nav = document.createElement('nav');
   nav.className = 'ayur-nav';
@@ -261,12 +261,10 @@ function injectSharedStyles() {
   --r8:8px; --r12:12px; --r16:16px; --r20:20px; --r24:24px;
   --sh1:0 1px 4px rgba(15,26,8,.08); --sh2:0 4px 16px rgba(15,26,8,.10); --sh3:0 8px 32px rgba(15,26,8,.14);
   --nav:58px;
-  /* aliases used by some pages */
   --green-700:#2d5016; --green-600:#3d6b1f; --green-900:#0f1a08; --green-50:#f4fbee; --green-100:#e8f5d8;
   --border:#ddd8cc; --cream:#f8f6f0; --text-900:#0f1a08; --text-700:#2c3520; --text-500:#5a6650; --text-300:#8a9680;
   --radius-sm:8px; --radius-md:12px; --radius-lg:16px;
   --shadow-md:0 4px 16px rgba(15,26,8,.10); --shadow-lg:0 8px 32px rgba(15,26,8,.14);
-  --white:#ffffff;
 }
 html { scroll-behavior:smooth; }
 body { font-family:'Sora',sans-serif; background:var(--paper); color:var(--ink2); min-height:100vh; padding-top:var(--nav); }
@@ -288,7 +286,7 @@ button,input,select,textarea { font-family:'Sora',sans-serif; }
 .anav-user:hover { background:rgba(255,255,255,.14); }
 .anav-av { width:28px; height:28px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; color:white; font-size:11px; font-weight:700; }
 .anav-uname { font-size:13px; font-weight:600; color:white; }
-.anav-dd { display:none; position:absolute; top:calc(100% + 10px); right:0; background:var(--g8); border:1px solid rgba(255,255,255,.1); border-radius:var(--r12); box-shadow:var(--sh3); width:208px; overflow:hidden; }
+.anav-dd { display:none; position:absolute; top:calc(100% + 10px); right:0; background:var(--g8); border:1px solid rgba(255,255,255,.1); border-radius:var(--r12); box-shadow:var(--sh3); width:220px; overflow:hidden; }
 .anav-dd.open { display:block; animation:anavFD .14s ease; }
 @keyframes anavFD { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:none} }
 .anav-dd-head { display:flex; gap:10px; align-items:center; padding:13px 14px; border-bottom:1px solid rgba(255,255,255,.08); }

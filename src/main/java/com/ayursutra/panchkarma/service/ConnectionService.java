@@ -114,4 +114,34 @@ public class ConnectionService {
                 .map(c -> c.getStatus() == ConnectionStatus.CONNECTED)
                 .orElse(false);
     }
+
+    @Transactional
+    public Connection connectDirectly(Long patientId, Long doctorId) {
+        List<Connection> existing = connectionRepo.findByPatientIdAndDoctorId(patientId, doctorId);
+        if (!existing.isEmpty()) {
+            Connection conn = existing.get(0);
+            if (conn.getStatus() == Connection.ConnectionStatus.CONNECTED) {
+                return conn;
+            }
+            if (conn.getStatus() == Connection.ConnectionStatus.PENDING) {
+                conn.setStatus(Connection.ConnectionStatus.CONNECTED);
+                conn.setConnectedAt(java.time.LocalDateTime.now());
+                return connectionRepo.save(conn);
+            }
+        }
+
+        Patient patient = patientRepo.findById(patientId)
+                .orElseThrow(() -> new IllegalArgumentException("Patient not found: " + patientId));
+        Doctor doctor = doctorRepo.findById(doctorId)
+                .orElseThrow(() -> new IllegalArgumentException("Doctor not found: " + doctorId));
+
+        Connection conn = new Connection();
+        conn.setPatient(patient);
+        conn.setDoctor(doctor);
+        conn.setStatus(Connection.ConnectionStatus.CONNECTED);
+        conn.setRequestMessage("Connected via QR / ID scan");
+        conn.setRequestedAt(java.time.LocalDateTime.now());
+        conn.setConnectedAt(java.time.LocalDateTime.now());
+        return connectionRepo.save(conn);
+    }
 }

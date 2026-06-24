@@ -137,6 +137,12 @@ public class PatientService {
                 .orElseThrow(() -> new IllegalArgumentException("Patient not found with QR code: " + qrCode));
     }
 
+    public Patient getPatientByPatientId(String patientId) {
+        return patientRepository.findByPatientId(patientId)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "No patient found with ID: " + patientId));
+    }
+
     private String generatePatientId() {
         long count = patientRepository.count();
         return String.format("AYR-PAT-%06d", count + 1);

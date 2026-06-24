@@ -83,6 +83,9 @@
       <div class="hero-left">
         <h1 id="heroGreet">My Patients</h1>
         <p>Manage patient connections and create treatment plans</p>
+        <a href="scan-patient.html" class="btn btn-gold" style="margin-top:12px;display:inline-flex;align-items:center;gap:7px;">
+          📷 Scan / Enter Patient ID
+        </a>
       </div>
       <div class="hero-stats">
         <div class="hstat"><div class="hstat-v" id="stConn">—</div><div class="hstat-l">Connected</div></div>
@@ -108,6 +111,7 @@
   <div class="tab-pane active" id="tab-connected">
     <div class="search-bar">
       <input type="text" id="patSearch" placeholder="Search by name or ID..." oninput="filterPatients()">
+      <a class="btn btn-gold btn-sm" href="scan-patient.html">📷 Scan QR</a>
       <button class="btn btn-primary btn-sm" onclick="window.location.href='treatment-plans.html'">➕ New Plan</button>
     </div>
     <div class="panel" id="connectedList">
