@@ -1,4 +1,5 @@
 <div align="center">
+<img width="2172" height="724" alt="AyurSutra Digital Healthcare Logo" src="https://github.com/user-attachments/assets/f57ec345-2203-4a84-965a-bce9f738043b" />
 
 <img src="docs/ayursutra-logo.png" alt="AyurSutra logo" width="140"/>
 
@@ -483,21 +484,8 @@ A few non-obvious problems we solved along the way:
 | Protected pages flashed before redirecting | Blank the document, then `window.location.replace()` |
 | H2 migration rejected a new `NOT NULL` column | Keep the column nullable, validate in the controller |
 
----
+<img width="2172" height="724" alt="AyurSutra Digital Healthcare Logo" src="https://github.com/user-attachments/assets/26c1d14b-c2bf-4c4a-a1be-21a3dbe1ac14" />
 
-## 🗺 Roadmap
-
-- [ ] 📅 Appointment scheduling with conflict detection and reminders
-- [ ] 🐘 PostgreSQL migration with Flyway
-- [ ] ✅ Automated tests (JUnit 5, Testcontainers)
-- [ ] 📱 Mobile app (React Native)
-- [ ] 🎥 Telemedicine via WebRTC
-- [ ] 🧠 AI-assisted dosha assessment
-- [ ] ⌚ IoT vitals device integration
-- [ ] 🏥 Multi-centre (multi-tenant) support
-- [ ] 📑 PDF export of treatment plans
-
----
 
 ## 👥 Team
 
@@ -515,7 +503,7 @@ Built at **Indore Institute of Science & Technology**, Indore, affiliated to **R
 
 ## 📜 License
 
-This project was built as an academic minor project. Add a license of your choice (for example MIT) before open-sourcing.
+MIT
 
 <div align="center">
 
