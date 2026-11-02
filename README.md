@@ -1,8 +1,5 @@
 <div align="center">
 <img width="2172" height="724" alt="AyurSutra Digital Healthcare Logo" src="https://github.com/user-attachments/assets/f57ec345-2203-4a84-965a-bce9f738043b" />
-
-<img src="docs/ayursutra-logo.png" alt="AyurSutra logo" width="140"/>
-
 # 🍃 AyurSutra
 
 ### Digital Healthcare Management for Ayurvedic Panchakarma Centres
